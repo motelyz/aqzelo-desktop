@@ -1,0 +1,96 @@
+name: Build AyuGram Installer
+
+on:
+  push:
+    tags: ['v*']
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: "5.15.19"
+  QT_ARCH: "win64_msvc2019_64"
+  TDESKTOP_API_ID: "2040"
+  TDESKTOP_API_HASH: "b18441a1ff607e10a989891a5462e627"
+  BUILD_TYPE: "Release"
+
+jobs:
+  build:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          target: desktop
+          host: windows
+          arch: ${{ env.QT_ARCH }}
+          cache: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-pc-windows-msvc
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup --version 6.2.2 -y
+          echo "C:\Program Files (x86)\Inno Setup 6" >> %GITHUB_PATH%
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare build
+        run: |
+          cd Telegram
+          call build\prepare\win.bat
+          cd ..
+
+      - name: Configure CMake
+        run: |
+          call configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_BUILD_TYPE=%BUILD_TYPE%
+
+      - name: Build
+        run: |
+          cmake --build out --config %BUILD_TYPE% --target Telegram --parallel
+
+      - name: Build Installer
+        run: |
+          copy Telegram\build\setup.iss out\Release\setup.iss
+          iscc out\Release\setup.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-windows
+          path: |
+            out/Release/Telegram.exe
+            out/Release/Telegram_*.exe
+          retention-days: 30
+
+      - name: Create Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            out/Release/Telegram.exe
+            out/Release/Telegram_*.exe
