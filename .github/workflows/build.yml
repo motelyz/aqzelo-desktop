@@ -1,226 +1,141 @@
-name: Build Aqzelo Installer
+name: Build Telegram Desktop Windows
 
 on:
   push:
-    tags: ['v*']
     branches: [master, main]
+    tags: ['v*']
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v1.0.0). Leave empty to auto-detect from Telegram/build/version + build number'
-        required: false
-        type: string
 
 permissions:
   contents: write
 
 env:
-  QT_VERSION: "5.15.19"
-  QT_ARCH: "win64_msvc2019_64"
   TDESKTOP_API_ID: "2040"
   TDESKTOP_API_HASH: "b18441a1ff607e10a989891a5462e627"
-  BUILD_TYPE: "Release"
-  APP_NAME: "Aqzelo"
+  PREPARE_PATH: "Telegram/build/prepare/prepare.py"
 
 jobs:
   build:
-    name: Build Windows Installer
+    name: Windows x64 Debug
     runs-on: windows-latest
     timeout-minutes: 180
     defaults:
       run:
         shell: cmd
 
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      version_tag: ${{ steps.get_version.outputs.version_tag }}
-      is_beta: ${{ steps.get_version.outputs.is_beta }}
-      full_version: ${{ steps.get_version.outputs.full_version }}
-
     steps:
-      - name: Checkout AqzeloDesktop (with submodules)
+      - name: Prepare directories
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Get repository name
+        shell: bash
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
 
-      - name: Detect version from Telegram/build/version + build number
-        id: get_version
+      - name: First setup - extract SDK version
+        shell: bash
         run: |
-          @echo off
-          setlocal enabledelayedexpansion
+          DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
 
-          if not exist Telegram\build\version (
-            echo "::error::Telegram/build/version not found"
-            exit /b 1
-          )
+          # Remove /Zi from debug flags to reduce PDB size
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
 
-          for /f "tokens=2" %%a in ('findstr /r "^AppVersionOriginal" Telegram\build\version') do (
-            set BASE_VERSION=%%a
-          )
+          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          echo "$SDK" >> CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
-          if "!BASE_VERSION!"=="" (
-            echo "::error::AppVersionOriginal not found in version file"
-            exit /b 1
-          )
-
-          echo Base version: !BASE_VERSION!
-
-          for /f "tokens=2" %%a in ('findstr /r "^BetaChannel" Telegram\build\version') do (
-            set BETA=%%a
-          )
-
-          echo Beta channel: !BETA!
-
-          REM Build number from GitHub run number
-          set BUILD_NUM=%GITHUB_RUN_NUMBER%
-          echo Build number: !BUILD_NUM!
-
-          REM Construct full version with build metadata (semver compatible)
-          set FULL_VERSION=!BASE_VERSION!-build.!BUILD_NUM!
-
-          if "!BETA!"=="1" (
-            set VERSION_TAG=v!FULL_VERSION!-beta
-            set IS_BETA=true
-          ) else (
-            set VERSION_TAG=v!FULL_VERSION!
-            set IS_BETA=false
-          )
-
-          echo Detected full version: !FULL_VERSION!
-          echo Version tag: !VERSION_TAG!
-
-          echo version=!BASE_VERSION! >> %GITHUB_OUTPUT%
-          echo full_version=!FULL_VERSION! >> %GITHUB_OUTPUT%
-          echo version_tag=!VERSION_TAG! >> %GITHUB_OUTPUT%
-          echo is_beta=!IS_BETA! >> %GITHUB_OUTPUT%
-
-          if "%GITHUB_EVENT_NAME%"=="workflow_dispatch" (
-            if not "%{{ github.event.inputs.version }}"=="" (
-              echo "Using manual version: ${{ github.event.inputs.version }}"
-              echo version_tag=${{ github.event.inputs.version }} >> %GITHUB_OUTPUT%
-              echo full_version=${{ github.event.inputs.version }} >> %GITHUB_OUTPUT%
-            )
-          )
-
-      - name: Setup MSVC Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Install Qt ${{ env.QT_VERSION }}
-        uses: jurplel/install-qt-action@v3
+      - name: Setup MSVC (official Telegram action)
+        uses: Eden-CI/msvc-dev-cmd@master
         with:
-          version: ${{ env.QT_VERSION }}
-          target: desktop
-          host: windows
-          arch: ${{ env.QT_ARCH }}
-          cache: true
+          arch: x64
+          sdk: ${{ env.SDK }}
 
-      - name: Install Rust (for tlottie)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
+        run: |
+          choco install make diffutils gperf nasm strawberryperl pkgconf --version=2.1.0 -y
+          refreshenv
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Cache ThirdParty
+        uses: actions/cache@v4
         with:
-          target: x86_64-pc-windows-msvc
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-${{ runner.arch }}-third-party-
 
-      - name: Install Inno Setup (for installer)
-        run: |
-          choco install innosetup --version 6.2.2 -y
-          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
-
-      - name: Install Python
-        uses: actions/setup-python@v5
+      - name: Cache Libraries
+        uses: actions/cache@v4
         with:
-          python-version: "3.12"
-          cache: pip
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\Qt*
+          key: ${{ runner.OS }}-x64-libs-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-libs-
 
-      - name: Prepare build environment
+      - name: Cache Qt
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\Qt*
+            ${{ env.LibrariesPath }}\cache_keys\Qt*
+          key: ${{ runner.OS }}-x64-qt-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-qt-
+
+      - name: Prepare Libraries (win.bat)
         run: |
-          cd Telegram
-          call build\prepare\win.bat
-          cd ..
+          cd ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+          call Telegram\build\prepare\win.bat skip-release silent
 
-      - name: Configure CMake
+      - name: Free disk space
+        shell: bash
         run: |
-          call configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_BUILD_TYPE=%BUILD_TYPE%
+          find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
 
-      - name: Build Aqzelo
+      - name: Configure CMake (Debug)
         run: |
-          cmake --build out --config %BUILD_TYPE% --target Telegram --parallel
+          cd ${{ env.TBUILD }}\${{ env.REPO_NAME }}\Telegram
+          call configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF
 
-      - name: Copy and patch Inno Setup script
+      - name: Build Telegram (Debug)
         run: |
-          copy Telegram\build\setup.iss out\Release\setup.iss
-          powershell -Command ^
-            "$v='${{ steps.get_version.outputs.full_version }}'; ^
-            (Get-Content out\Release\setup.iss) -replace 'AppVersionOriginal.*', 'AppVersionOriginal ' + $v -replace '#define MyAppVersion \".*\"', '#define MyAppVersion \"' + $v + '\"' -replace 'AppName=Telegram Desktop', 'AppName=Aqzelo' -replace 'AppId=\\{53F49750-6209-4FBF-9CA8-7A333C87D1ED\\}', 'AppId={A1B2C3D4-E5F6-7890-ABCD-EF1234567890}' -replace 'DefaultDirName=\\{userappdata\\}\\\\Telegram Desktop', 'DefaultDirName={userappdata}\Aqzelo' -replace 'Telegram.exe', 'Aqzelo.exe' | Set-Content out\Release\setup.iss -Encoding UTF8"
+          cmake --build ${{ env.TBUILD }}\${{ env.REPO_NAME }}\out --config Debug --parallel
 
-      - name: Build Installer (Inno Setup)
+      - name: Prepare artifacts
         run: |
-          iscc out\Release\setup.iss
+          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
+          mkdir artifact
+          copy %OUT%\Telegram.exe artifact\
+          copy %OUT%\Updater.exe artifact\
 
-      - name: Find artifacts
-        id: artifacts
-        run: |
-          dir out\Release\Aqzelo.exe
-          dir out\Release\Aqzelo_*.exe
-          echo "EXE=out\Release\Aqzelo.exe" >> %GITHUB_OUTPUT%
-          for %%f in (out\Release\Aqzelo_*.exe) do echo "INSTALLER=%%f" >> %GITHUB_OUTPUT%
-
-      - name: Upload build artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Aqzelo-${{ steps.get_version.outputs.version_tag }}-windows
-          path: |
-            out/Release/Aqzelo.exe
-            out/Release/Aqzelo_*.exe
+          name: Telegram-Debug-x64
+          path: artifact/
           retention-days: 30
 
-      - name: Create Release (push tag)
+      - name: Create Release (on tag push)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Aqzelo ${{ github.ref_name }}
-          generate_release_notes: true
           files: |
-            out/Release/Aqzelo.exe
-            out/Release/Aqzelo_*.exe
-          draft: false
-          prerelease: ${{ steps.get_version.outputs.is_beta == 'true' }}
-
-      - name: Create Release (push to master/main with build number)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.get_version.outputs.version_tag }}
-          name: Aqzelo ${{ steps.get_version.outputs.version_tag }}
+            artifact/Telegram.exe
+            artifact/Updater.exe
           generate_release_notes: true
-          files: |
-            out/Release/Aqzelo.exe
-            out/Release/Aqzelo_*.exe
-          draft: false
-          prerelease: ${{ steps.get_version.outputs.is_beta == 'true' }}
-
-      - name: Create Release (workflow_dispatch with auto version)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version == ''
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.get_version.outputs.version_tag }}
-          name: Aqzelo ${{ steps.get_version.outputs.version_tag }}
-          generate_release_notes: true
-          files: |
-            out/Release/Aqzelo.exe
-            out/Release/Aqzelo_*.exe
-          draft: false
-          prerelease: ${{ steps.get_version.outputs.is_beta == 'true' }}
-
-      - name: Create Release (workflow_dispatch with manual version)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: Aqzelo ${{ github.event.inputs.version }}
-          generate_release_notes: true
-          files: |
-            out/Release/Aqzelo.exe
-            out/Release/Aqzelo_*.exe
-          draft: false
-          prerelease: false
