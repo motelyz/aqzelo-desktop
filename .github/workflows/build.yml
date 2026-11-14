@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  QT_VERSION: "5.15.19"
+  QT_VERSION: "5.15.16"
   QT_ARCH: "win64_msvc2019_64"
   TDESKTOP_API_ID: "2040"
   TDESKTOP_API_HASH: "b18441a1ff607e10a989891a5462e627"
