@@ -122,7 +122,9 @@ jobs:
           target: x86_64-pc-windows-msvc
 
       - name: Install Inno Setup (for installer)
-        uses: MinatoAquaCoder/install-innosetup-action@v1.1.0
+        run: |
+          choco install innosetup --version 6.2.2 -y
+          echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
 
       - name: Install Python
         uses: actions/setup-python@v5
