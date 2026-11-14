@@ -1,0 +1,36 @@
+<RCC>
+    <qresource prefix="/gui">
+        <file alias="art/aqzelo/alt/app.png">../../art/aqzelo/alt/app.png</file>
+        <file alias="art/aqzelo/alt/app_icon.ico">../../art/aqzelo/alt/app_icon.ico</file>
+        <file alias="art/aqzelo/bard/app.png">../../art/aqzelo/bard/app.png</file>
+        <file alias="art/aqzelo/bard/app_icon.ico">../../art/aqzelo/bard/app_icon.ico</file>
+        <file alias="art/aqzelo/chibi/app.png">../../art/aqzelo/chibi/app.png</file>
+        <file alias="art/aqzelo/chibi/app_icon.ico">../../art/aqzelo/chibi/app_icon.ico</file>
+        <file alias="art/aqzelo/chibi2/app.png">../../art/aqzelo/chibi2/app.png</file>
+        <file alias="art/aqzelo/chibi2/app_icon.ico">../../art/aqzelo/chibi2/app_icon.ico</file>
+        <file alias="art/aqzelo/default/app.png">../../art/aqzelo/default/app.png</file>
+        <file alias="art/aqzelo/default/app_icon.ico">../../art/aqzelo/default/app_icon.ico</file>
+        <file alias="art/aqzelo/discord/app.png">../../art/aqzelo/discord/app.png</file>
+        <file alias="art/aqzelo/discord/app_icon.ico">../../art/aqzelo/discord/app_icon.ico</file>
+        <file alias="art/aqzelo/extera/app.png">../../art/aqzelo/extera/app.png</file>
+        <file alias="art/aqzelo/extera/app_icon.ico">../../art/aqzelo/extera/app_icon.ico</file>
+        <file alias="art/aqzelo/extera2/app.png">../../art/aqzelo/extera2/app.png</file>
+        <file alias="art/aqzelo/extera2/app_icon.ico">../../art/aqzelo/extera2/app_icon.ico</file>
+        <file alias="art/aqzelo/nothing/app.png">../../art/aqzelo/nothing/app.png</file>
+        <file alias="art/aqzelo/nothing/app_icon.ico">../../art/aqzelo/nothing/app_icon.ico</file>
+        <file alias="art/aqzelo/spotify/app.png">../../art/aqzelo/spotify/app.png</file>
+        <file alias="art/aqzelo/spotify/app_icon.ico">../../art/aqzelo/spotify/app_icon.ico</file>
+        <file alias="art/aqzelo/win95/app.png">../../art/aqzelo/win95/app.png</file>
+        <file alias="art/aqzelo/win95/app_icon.ico">../../art/aqzelo/win95/app_icon.ico</file>
+        <file alias="art/aqzelo/yaplus/app.png">../../art/aqzelo/yaplus/app.png</file>
+        <file alias="art/aqzelo/yaplus/app_icon.ico">../../art/aqzelo/yaplus/app_icon.ico</file>
+        <file alias="icons/aqzelo/nocover.svg">../../icons/aqzelo/nocover.svg</file>
+        <file alias="icons/aqzelo/donates/boosty.svg">../../icons/aqzelo/donates/boosty.svg</file>
+        <file alias="icons/aqzelo/donates/ton.svg">../../icons/aqzelo/donates/ton.svg</file>
+        <file alias="icons/aqzelo/donates/bitcoin.svg">../../icons/aqzelo/donates/bitcoin.svg</file>
+        <file alias="icons/aqzelo/donates/ethereum.svg">../../icons/aqzelo/donates/ethereum.svg</file>
+        <file alias="icons/aqzelo/donates/solana.svg">../../icons/aqzelo/donates/solana.svg</file>
+        <file alias="icons/aqzelo/donates/tron.svg">../../icons/aqzelo/donates/tron.svg</file>
+        <file alias="icons/aqzelo/donates/support_logo.svg">../../icons/aqzelo/donates/support_logo.svg</file>
+    </qresource>
+</RCC>

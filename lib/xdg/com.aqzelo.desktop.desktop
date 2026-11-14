@@ -1,0 +1,22 @@
+[Desktop Entry]
+Name=Aqzelo Desktop
+Comment=Desktop version of Aqzelo - ToS breaking Telegram client
+TryExec=Aqzelo
+Exec=env DESKTOPINTEGRATION=1 Aqzelo -- %U
+Icon=com.aqzelo.desktop
+Terminal=false
+StartupWMClass=Aqzelo
+Type=Application
+Categories=Chat;Network;InstantMessaging;Qt;
+MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;
+Keywords=tg;chat;im;messaging;messenger;sms;telegram;tdesktop;
+Actions=quit;
+DBusActivatable=true
+SingleMainWindow=true
+X-GNOME-UsesNotifications=true
+X-GNOME-SingleWindow=true
+
+[Desktop Action quit]
+Exec=Aqzelo -quit
+Name=Quit Aqzelo
+Icon=application-exit
