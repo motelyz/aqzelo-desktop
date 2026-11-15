@@ -114,6 +114,7 @@ jobs:
         run: |
           cd ${{ env.TBUILD }}\${{ env.REPO_NAME }}\Telegram
           set QT=5.15.19
+          set QT5_PREFIX=%LibrariesPath%\Qt5.15.19
           call configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF
 
       - name: Build Telegram (Debug)
