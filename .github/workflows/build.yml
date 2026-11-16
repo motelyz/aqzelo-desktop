@@ -65,7 +65,7 @@ jobs:
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         run: |
-          choco install make diffutils gperf nasm strawberryperl pkgconf --version=2.1.0 -y
+          choco install make diffutils gperf nasm pkgconf -y
           refreshenv
 
       - name: NuGet sources
