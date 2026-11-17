@@ -72,7 +72,7 @@ jobs:
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         run: |
-          choco install make diffutils gperf nasm pkgconf -y
+          choco install make diffutils gperf nasm pkgconf jom -y
           refreshenv
 
       - name: NuGet sources
