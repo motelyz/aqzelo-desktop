@@ -123,13 +123,12 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt-
 
       - name: Prepare Libraries (win.bat)
-        shell: pwsh
+        shell: cmd
         run: |
-          $repoName = "${{ github.event.repository.name }}"
-          $tbuild = "${{ github.workspace }}\TBuild"
-          Set-Location "$tbuild\$repoName"
-          $env:QT = "5.15.19"
-          & "Telegram\build\prepare\win.bat" skip-release silent
+          cd /d ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
+          set QT=5.15.19
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call Telegram\build\prepare\win.bat skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
