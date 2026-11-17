@@ -26,12 +26,18 @@ jobs:
 
     steps:
       - name: Prepare directories
+        shell: pwsh
         run: |
-          mkdir %userprofile%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
-          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
-          echo REPO_NAME=${GITHUB_REPOSITORY##*/}>>%GITHUB_ENV%
-          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\Libraries\win64>>%GITHUB_ENV%
+          $repo = "${{ github.repository }}"
+          $name = $repo.Split('/')[-1]
+          $tbuild = "$env:GITHUB_WORKSPACE\TBuild"
+          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\TBuild\Libraries" | Out-Null
+          if (-not (Test-Path "$tbuild")) {
+            New-Item -ItemType SymbolicLink -Path "$tbuild" -Target "$env:USERPROFILE\TBuild" | Out-Null
+          }
+          "TBUILD=$tbuild" >> $env:GITHUB_ENV
+          "REPO_NAME=$name" >> $env:GITHUB_ENV
+          "LibrariesPath=$tbuild\$name\Libraries\win64" >> $env:GITHUB_ENV
 
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
