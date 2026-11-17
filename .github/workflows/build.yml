@@ -127,6 +127,7 @@ jobs:
         run: |
           cd /d ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
           set QT=5.15.19
+          set X8664=x64
           "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 && python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
