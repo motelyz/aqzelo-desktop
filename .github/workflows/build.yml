@@ -73,7 +73,7 @@ jobs:
       - name: Cache ThirdParty
         uses: actions/cache@v4
         with:
-          path: ${{ env.TBUILD }}\ThirdParty
+          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}\ThirdParty
           key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-${{ runner.arch }}-third-party-
 
