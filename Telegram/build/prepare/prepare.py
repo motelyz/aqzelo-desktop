@@ -1953,9 +1953,9 @@ win:
         --target %RUST_TARGET% ^
         --config "target.%RUST_TARGET%.rustflags=['-C','target-feature=+crt-static']" ^
         -- --print native-static-libs
-    mkdir out\\lib out\\include
-    copy target\\%RUST_TARGET%\\release\\tlottie.lib out\\lib\\tlottie.lib
-    copy include\\tlottie.h out\\include\\tlottie.h
+    mkdir ..\\tdesktop_rust\\out\\lib ..\\tdesktop_rust\\out\\include\\tlottie
+    copy target\\%RUST_TARGET%\\release\\tlottie.lib ..\\tdesktop_rust\\out\\lib\\tdesktop_rust.lib
+    copy include\\tlottie.h ..\\tdesktop_rust\\out\\include\\tlottie\\tlottie.h
 mac:
     export RUSTUP_HOME=$THIRDPARTY_DIR/rust/rustup
     export CARGO_HOME=$THIRDPARTY_DIR/rust/cargo
