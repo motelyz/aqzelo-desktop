@@ -14,6 +14,8 @@ env:
   TDESKTOP_API_ID: "2040"
   TDESKTOP_API_HASH: "b18441a1ff607e10a989891a5462e627"
   PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+  TBUILD_ROOT: ${{ github.workspace }}\TBuild
+  REPO_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -44,11 +46,13 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+          path: ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
 
       - name: First setup - extract SDK version
         shell: bash
         run: |
+          REPO_NAME="${{ github.event.repository.name }}"
+          TBUILD="${{ github.workspace }}\TBuild"
           DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
           SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
           echo "SDK=$SDK" >> $GITHUB_ENV
@@ -95,7 +99,7 @@ jobs:
       - name: Cache ThirdParty
         uses: actions/cache@v4
         with:
-          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}\ThirdParty
+          path: ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\ThirdParty
           key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-${{ runner.arch }}-third-party-
 
@@ -119,16 +123,20 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt-
 
       - name: Prepare Libraries (win.bat)
+        shell: pwsh
         run: |
-          cd ${{ env.TBUILD }}\${{ env.REPO_NAME }}
-          set QT=5.15.19
-          call Telegram\build\prepare\win.bat skip-release silent
+          $repoName = "${{ github.event.repository.name }}"
+          $tbuild = "${{ github.workspace }}\TBuild"
+          Set-Location "$tbuild\$repoName"
+          $env:QT = "5.15.19"
+          & "Telegram\build\prepare\win.bat" skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
         run: |
           # Remove ThirdParty - no longer needed after prepare
-          $thirdParty = "${{ env.TBUILD }}\${{ env.REPO_NAME }}\ThirdParty"
+          $repoName = "${{ github.event.repository.name }}"
+          $thirdParty = "${{ github.workspace }}\TBuild\$repoName\ThirdParty"
           if (Test-Path $thirdParty) {
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $thirdParty
             Write-Host "Removed ThirdParty: $thirdParty"
@@ -153,23 +161,32 @@ jobs:
           Write-Host "Free space: $([math]::Round($disk.Free/1GB, 2)) GB"
 
       - name: Configure CMake (Debug, Qt5)
+        shell: pwsh
         run: |
-          cd ${{ env.TBUILD }}\${{ env.REPO_NAME }}\Telegram
-          set QT=5.15.19
-          set QT_VERSION_MAJOR=5
-          call configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
+          $repoName = "${{ github.event.repository.name }}"
+          $tbuild = "${{ github.workspace }}\TBuild"
+          Set-Location "$tbuild\$repoName\Telegram"
+          $env:QT = "5.15.19"
+          $env:QT_VERSION_MAJOR = "5"
+          & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
+        shell: pwsh
         run: |
-          set QT=5.15.19
-          cmake --build ${{ env.TBUILD }}\${{ env.REPO_NAME }}\out --config Debug --parallel
+          $repoName = "${{ github.event.repository.name }}"
+          $tbuild = "${{ github.workspace }}\TBuild"
+          $env:QT = "5.15.19"
+          cmake --build "$tbuild\$repoName\out" --config Debug --parallel
 
       - name: Prepare artifacts
+        shell: pwsh
         run: |
-          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
-          mkdir artifact
-          copy %OUT%\Telegram.exe artifact\
-          copy %OUT%\Updater.exe artifact\
+          $repoName = "${{ github.event.repository.name }}"
+          $tbuild = "${{ github.workspace }}\TBuild"
+          $out = "$tbuild\$repoName\out\Debug"
+          New-Item -ItemType Directory -Force -Path "artifact" | Out-Null
+          Copy-Item "$out\Telegram.exe" "artifact\"
+          Copy-Item "$out\Updater.exe" "artifact\"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
