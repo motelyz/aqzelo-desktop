@@ -76,6 +76,22 @@ jobs:
           nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
+      - name: Free disk space (pre-prepare cleanup)
+        shell: pwsh
+        run: |
+          # Remove unnecessary Windows components to free space
+          Write-Host "Free space before cleanup:"
+          Get-PSDrive C | Select-Object Used,Free | Format-Table -AutoSize
+          # Clean temp
+          if (Test-Path "$env:TEMP") { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:TEMP\*" }
+          if (Test-Path "$env:TMP") { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:TMP\*" }
+          # Clean NuGet cache
+          if (Test-Path "$env:USERPROFILE\.nuget\packages") { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$env:USERPROFILE\.nuget\packages\*" }
+          # Clean Chocolatey cache
+          if (Test-Path "C:\ProgramData\chocolatey\lib") { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "C:\ProgramData\chocolatey\lib\*" }
+          Write-Host "Free space after cleanup:"
+          Get-PSDrive C | Select-Object Used,Free | Format-Table -AutoSize
+
       - name: Cache ThirdParty
         uses: actions/cache@v4
         with:
@@ -108,10 +124,33 @@ jobs:
           set QT=5.15.19
           call Telegram\build\prepare\win.bat skip-release silent
 
-      - name: Free disk space
-        shell: bash
+      - name: Free disk space (cleanup ThirdParty after prepare)
+        shell: pwsh
         run: |
-          find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          # Remove ThirdParty - no longer needed after prepare
+          $thirdParty = "${{ env.TBUILD }}\${{ env.REPO_NAME }}\ThirdParty"
+          if (Test-Path $thirdParty) {
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $thirdParty
+            Write-Host "Removed ThirdParty: $thirdParty"
+          }
+          # Clean Libraries: keep only .lib, .a, .exe, headers, .cmake, .pc, include/, objects-*, cache_keys/, patches/, nv-codec-headers/
+          $libsPath = "${{ env.LibrariesPath }}"
+          if (Test-Path $libsPath) {
+            Get-ChildItem -Recurse -File $libsPath | Where-Object {
+              $_.Extension -notin '.lib','.a','.exe','.h','.hpp','.inc','.cmake','.pc' -and
+              $_.FullName -notmatch '\\include\\' -and
+              $_.FullName -notmatch '\\objects-.*\\' -and
+              $_.FullName -notmatch '\\cache_keys\\' -and
+              $_.FullName -notmatch '\\patches\\' -and
+              $_.FullName -notmatch '\\nv-codec-headers\\'
+            } | Remove-Item -Force -ErrorAction SilentlyContinue
+            # Remove empty directories
+            Get-ChildItem -Recurse -Directory $libsPath | Where-Object { @(Get-ChildItem -Recurse $_).Count -eq 0 } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Cleaned Libraries: $libsPath"
+          }
+          # Show free space
+          $disk = Get-PSDrive C
+          Write-Host "Free space: $([math]::Round($disk.Free/1GB, 2)) GB"
 
       - name: Configure CMake (Debug, Qt5)
         run: |
