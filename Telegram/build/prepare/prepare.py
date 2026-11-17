@@ -318,7 +318,10 @@ def run(commands):
         with open("command.bat", 'w') as file:
             file.write('@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\n' + winFailOnEach(commands))
         batPath = os.path.abspath("command.bat")
-        result = subprocess.run(batPath, shell=True, env=modifiedEnv).returncode == 0
+        # If MSVC env is active (vcvarsall was run), inherit parent env instead of using stale modifiedEnv
+        use_modified_env = not bool(os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'))
+        env = modifiedEnv if use_modified_env else None
+        result = subprocess.run(batPath, shell=True, env=env).returncode == 0
         if result and os.path.exists("command.bat"):
             os.remove("command.bat")
         return result
