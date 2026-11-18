@@ -341,7 +341,7 @@ def run(commands):
             vcvars_setup = '"C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64 -vcvars_ver=14.44\r\n'
         with open("command.bat", 'w') as file:
             # Add debug to trace bat file execution
-            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] python location: & where python\r\n' + vcvars_setup
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\n'
             file.write(debug_prefix + winFailOnEach(commands) + '\r\necho [BAT DEBUG] Finished bat file\r\ndir\r\n')
         batPath = os.path.abspath("command.bat")
         print(f'[DEBUG RUN] cwd={os.getcwd()} batPath={batPath}')
