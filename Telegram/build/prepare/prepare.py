@@ -181,6 +181,13 @@ def computeCacheKey(stage):
         if not os.path.exists(path):
             path = os.path.join(thirdPartyDir, norm_pattern)
         if not os.path.exists(path):
+            # Debug: print the paths we checked
+            print(f'[DEBUG] thirdPartyDir={thirdPartyDir}')
+            print(f'[DEBUG] libsDir={libsDir}')
+            print(f'[DEBUG] pattern={pattern}')
+            print(f'[DEBUG] norm_pattern={norm_pattern}')
+            print(f'[DEBUG] checked libsDir: {os.path.join(libsDir, norm_pattern)} exists={os.path.exists(os.path.join(libsDir, norm_pattern))}')
+            print(f'[DEBUG] checked thirdPartyDir: {os.path.join(thirdPartyDir, norm_pattern)} exists={os.path.exists(os.path.join(thirdPartyDir, norm_pattern))}')
             error('Nothing found: ' + pattern)
         items = [pattern, computeFileHash(path)]
         objects.append(':'.join(items))
