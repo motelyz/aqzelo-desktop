@@ -200,8 +200,15 @@ def checkCacheKey(stage):
     if not 'key' in stage:
         error('Key not set in stage: ' + stage['name'])
     key = keyPath(stage)
-    if not os.path.exists(os.path.join(stage['directory'], stage['name'])):
+    stageDir = os.path.join(stage['directory'], stage['name'])
+    if not os.path.exists(stageDir):
         return 'NotFound'
+    # For python stage, verify the venv is actually complete
+    if stage['name'] == 'python' and stage['location'] == 'ThirdParty':
+        activate_bat = os.path.join(stageDir, 'Scripts', 'activate.bat')
+        if not os.path.exists(activate_bat):
+            print(f'[DEBUG] python venv incomplete: {activate_bat} not found, forcing rebuild')
+            return 'NotFound'
     if not os.path.exists(key):
         return 'Stale'
     with open(key, 'r') as file:
