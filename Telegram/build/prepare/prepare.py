@@ -328,6 +328,7 @@ def printCommands(commands):
     print('--------------------------------------------------------------------------------')
 
 def run(commands):
+    import subprocess
     printCommands(commands)
     if win:
         if os.path.exists("command.bat"):
@@ -364,7 +365,6 @@ def run(commands):
         # Additional debug for python stage
         if 'python -m venv python' in commands:
             print(f'[DEBUG RUN] Python stage detected, checking python availability')
-            import subprocess
             py_check = subprocess.run('python --version', shell=True, capture_output=True, text=True, env=env)
             print(f'[DEBUG RUN] python --version: stdout={py_check.stdout} stderr={py_check.stderr} rc={py_check.returncode}')
         if result and os.path.exists("command.bat"):
