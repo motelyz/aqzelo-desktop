@@ -83,7 +83,6 @@ if not os.path.isdir(os.path.join(thirdPartyDir, keysLoc)):
     pathlib.Path(os.path.join(thirdPartyDir, keysLoc)).mkdir(parents=True, exist_ok=True)
 
 pathPrefixes = [
-    'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja',
     'ThirdParty\\msys64\\mingw64\\bin',
     'ThirdParty\\jom',
     'ThirdParty\\gyp',
@@ -335,12 +334,12 @@ def run(commands):
     if win:
         if os.path.exists("command.bat"):
             os.remove("command.bat")
-        # If MSVC env is active (vcvarsall was run in parent), we need to re-run vcvarsall in the bat file
-        # because the subprocess spawns a new cmd.exe shell that doesn't inherit the vcvars environment
+        # If MSVC env is active (vcvarsall was run in parent), DON'T run vcvarsall again in the bat file.
+        # The parent env already has the correct MSVC environment. Running vcvarsall again in the bat file
+        # adds VS paths AFTER our PATH_PREFIX, causing Chocolatey ninja to be found before VS ninja.
         vcvars_setup = ''
-        if os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'):
-            # Use default vcvars version (let VS choose the latest installed toolset)
-            # MUST use 'call' otherwise control transfers to vcvarsall.bat and never returns!
+        if not (os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion')):
+            # No MSVC env in parent, need to set it up in the bat file
             vcvars_setup = 'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64\r\n'
         with open("command.bat", 'w') as file:
             # Add debug to trace bat file execution
