@@ -625,6 +625,9 @@ stage('zlib', """
     git checkout e3dc0a85b7032e98380dec011bc8f2c2ee0d8fca
 win:
     cmake . ^
+        -G "Ninja Multi-Config" ^
+        -DCMAKE_C_COMPILER=cl ^
+        -DCMAKE_CXX_COMPILER=cl ^
         -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" ^
         -DCMAKE_C_FLAGS="/DZLIB_WINAPI" ^
         -DZLIB_BUILD_SHARED=OFF ^
