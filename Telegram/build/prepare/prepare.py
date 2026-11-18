@@ -550,9 +550,11 @@ else:
     environment['THIRDPARTY_MSYS64'] = r'C:\msys64'
     # Update PATH_PREFIX to use system MSYS2
     pathPrefixes = [
+        'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja',
         r'C:\msys64\usr\bin',
         'ThirdParty\\jom',
         'ThirdParty\\gyp',
+        'C:\\ProgramData\\chocolatey\\bin',
     ] if win else [
         'ThirdParty/gyp',
     ]
