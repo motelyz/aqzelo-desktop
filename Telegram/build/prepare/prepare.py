@@ -335,29 +335,46 @@ def run(commands):
     if win:
         if os.path.exists("command.bat"):
             os.remove("command.bat")
-        # If MSVC env is active (vcvarsall was run in parent), DON'T run vcvarsall again in the bat file.
-        # The parent env already has the correct MSVC environment. Running vcvarsall again in the bat file
-        # adds VS paths AFTER our PATH_PREFIX, causing Chocolatey ninja to be found before VS ninja.
-        vcvars_setup = ''
-        if not (os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion')):
+
+        # Check if parent already has MSVC environment (from Eden-CI action)
+        parent_has_msvc = bool(os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'))
+
+        if parent_has_msvc:
+            # Parent has MSVC env but MSYS2 paths may come before VS paths.
+            # Reorder PATH in Python to put VS tool paths before MSYS2 paths,
+            # then prepend PATH_PREFIX. This avoids calling vcvarsall again in bat file
+            # which would duplicate VS paths and cause "input line too long" error.
+            parent_path = os.environ.get('PATH', '')
+            path_parts = parent_path.split(';')
+
+            # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64)
+            vs_paths = [p for p in path_parts if r'VC\Tools\MSVC\' in p and r'bin\HostX64\x64' in p]
+            # Find MSYS2 paths
+            msys2_paths = [p for p in path_parts if r'msys64\usr\bin' in p]
+            # Other paths
+            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
+
+            # Reorder: VS paths first, then PATH_PREFIX, then MSYS2, then rest
+            # This ensures cl.exe and link.exe from VS are found before MSYS2 versions
+            reordered_path = ';'.join(vs_paths + other_paths)
+            env = os.environ.copy()
+            env['PATH'] = environment['PATH_PREFIX'] + reordered_path
+            for key in environment:
+                env[key] = environment[key]
+
+            # No vcvarsall call in bat file since parent already has it
+            vcvars_setup = ''
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file (parent MSVC env)\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] python location: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\n'
+        else:
             # No MSVC env in parent, need to set it up in the bat file
             vcvars_setup = 'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64\r\n'
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
+            env = modifiedEnv
+
         with open("command.bat", 'w') as file:
-            # Add debug to trace bat file execution
-            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
             file.write(debug_prefix + winFailOnEach(commands) + '\r\necho [BAT DEBUG] Finished bat file\r\ndir\r\n')
         batPath = os.path.abspath("command.bat")
         print(f'[DEBUG RUN] cwd={os.getcwd()} batPath={batPath}')
-        # If MSVC env is active (vcvarsall was run), inherit parent env but ensure PATH_PREFIX and other env vars are included
-        use_modified_env = not bool(os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'))
-        if use_modified_env:
-            env = modifiedEnv
-        else:
-            # Merge parent env with PATH_PREFIX and all environment variables to ensure ThirdParty tools and paths are available
-            env = os.environ.copy()
-            env['PATH'] = environment['PATH_PREFIX'] + env['PATH']
-            for key in environment:
-                env[key] = environment[key]
         result = subprocess.run(batPath, shell=True, env=env).returncode == 0
         print(f'[DEBUG RUN] result={result} cwd_after={os.getcwd()}')
         # Debug: check if python venv was created (for python stage)
