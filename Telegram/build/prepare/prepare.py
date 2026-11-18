@@ -347,12 +347,17 @@ def run(commands):
             parent_path = os.environ.get('PATH', '')
             path_parts = parent_path.split(';')
 
-            # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64)
-            vs_paths = [p for p in path_parts if 'VC\\Tools\\MSVC\\' in p and 'bin\\HostX64\\x64' in p]
-            # Find MSYS2 paths
-            msys2_paths = [p for p in path_parts if 'msys64\\usr\\bin' in p]
+            # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64) - case insensitive
+            vs_paths = [p for p in path_parts if 'vc\\tools\\msvc\\' in p.lower() and 'bin\\hostx64\\x64' in p.lower()]
+            # Find MSYS2 paths - case insensitive
+            msys2_paths = [p for p in path_parts if 'msys64\\usr\\bin' in p.lower()]
             # Other paths
             other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
+
+            # Debug: print what we found
+            print(f'[DEBUG PATH] VS paths found: {vs_paths}')
+            print(f'[DEBUG PATH] MSYS2 paths found: {msys2_paths}')
+            print(f'[DEBUG PATH] Other paths count: {len(other_paths)}')
 
             # Reorder: VS paths first, then PATH_PREFIX, then MSYS2, then rest
             # This ensures cl.exe and link.exe from VS are found before MSYS2 versions
