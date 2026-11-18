@@ -341,82 +341,58 @@ def run(commands):
 
         if parent_has_msvc:
             # Parent has MSVC env but MSYS2 paths may come before VS paths.
-            # Reorder PATH in the bat file itself to put VS tool paths before MSYS2 paths.
-            # This avoids the issue where subprocess.run with shell=True doesn't properly use the env parameter on Windows.
+            # Reorder PATH in Python to put VS tool paths before MSYS2 paths,
+            # then prepend PATH_PREFIX. Use shell=False to properly use the env parameter.
+            parent_path = os.environ.get('PATH', '')
+            path_parts = parent_path.split(';')
+
+            # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64) - case insensitive
+            vs_paths = [p for p in path_parts if 'vc\\tools\\msvc\\' in p.lower() and 'bin\\hostx64\\x64' in p.lower()]
+            # Find MSYS2 paths - case insensitive (both system and local)
+            msys2_paths = [p for p in path_parts if 'msys64\\usr\\bin' in p.lower() or 'msys64\\mingw64\\bin' in p.lower()]
+            # Other paths
+            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
+
+            # Debug: print what we found
+            print(f'[DEBUG PATH] VS paths found: {vs_paths}')
+            print(f'[DEBUG PATH] MSYS2 paths found: {msys2_paths}')
+            print(f'[DEBUG PATH] Other paths count: {len(other_paths)}')
+
+            # Reorder: VS paths first, then PATH_PREFIX, then MSYS2, then rest
+            # This ensures cl.exe and link.exe from VS are found before MSYS2 versions
+            reordered_path = ';'.join(vs_paths + other_paths)
+            env = os.environ.copy()
+            env['PATH'] = environment['PATH_PREFIX'] + reordered_path
+            for key in environment:
+                env[key] = environment[key]
+
+            # CRITICAL: Ensure THIRDPARTY_MSYS64 is explicitly set in env for bat file
+            if 'THIRDPARTY_MSYS64' in environment:
+                env['THIRDPARTY_MSYS64'] = environment['THIRDPARTY_MSYS64']
+                print(f'[DEBUG RUN] THIRDPARTY_MSYS64 set in env: {environment["THIRDPARTY_MSYS64"]}')
+            else:
+                print('[DEBUG RUN] WARNING: THIRDPARTY_MSYS64 NOT in environment dict!')
+
+            # Debug: print all env vars being passed
+            print(f'[DEBUG RUN] Env vars passed to subprocess: {[k for k in env.keys() if "THIRD" in k or "PATH" in k or "MSYS" in k]}')
+
+            # No vcvarsall call in bat file since parent already has it
             vcvars_setup = ''
-            # Bat file commands to reorder PATH: extract VS tool paths and move them before MSYS2 paths
-            path_reorder = (
-                'rem Reorder PATH to put VS tool paths before MSYS2 paths\r\n'
-                'set "VS_PATHS="\r\n'
-                'set "MSYS2_PATHS="\r\n'
-                'set "OTHER_PATHS="\r\n'
-                'set "FULL_PATH=%PATH%"\r\n'
-                'set "PATH_SEP=;"\r\n'
-                'rem Split PATH by semicolon and categorize\r\n'
-                'for %%P in ("%PATH:;=";"%") do (\r\n'
-                '    set "PART=%%~P"\r\n'
-                '    echo !PART! | findstr /i "VC\\\\Tools\\\\MSVC\\\\.*bin\\\\HostX64\\\\x64" >nul\r\n'
-                '    if !errorlevel! equ 0 (\r\n'
-                '        set "VS_PATHS=!VS_PATHS!;!PART!"\r\n'
-                '    ) else (\r\n'
-                '        echo !PART! | findstr /i "msys64\\\\usr\\\\bin" >nul\r\n'
-                '        if !errorlevel! equ 0 (\r\n'
-                '            set "MSYS2_PATHS=!MSYS2_PATHS!;!PART!"\r\n'
-                '        ) else (\r\n'
-                '            set "OTHER_PATHS=!OTHER_PATHS!;!PART!"\r\n'
-                '        )\r\n'
-                '    )\r\n'
-                ')\r\n'
-                'rem Remove leading semicolons\r\n'
-                'if defined VS_PATHS set "VS_PATHS=!VS_PATHS:~1!"\r\n'
-                'if defined MSYS2_PATHS set "MSYS2_PATHS=!MSYS2_PATHS:~1!"\r\n'
-                'if defined OTHER_PATHS set "OTHER_PATHS=!OTHER_PATHS:~1!"\r\n'
-                'rem Reconstruct PATH: VS paths first, then PATH_PREFIX (from env), then MSYS2, then rest\r\n'
-                'set "PATH=%PATH_PREFIX%!VS_PATHS!;!OTHER_PATHS!;!MSYS2_PATHS!"\r\n'
-                'rem Enable delayed expansion for the loop above\r\n'
-                'setlocal enabledelayedexpansion\r\n'
-            )
-            # We need to move the setlocal before the loop and endlocal after
-            path_reorder = (
-                'setlocal enabledelayedexpansion\r\n'
-                'rem Reorder PATH to put VS tool paths before MSYS2 paths\r\n'
-                'set "VS_PATHS="\r\n'
-                'set "MSYS2_PATHS="\r\n'
-                'set "OTHER_PATHS="\r\n'
-                'set "FULL_PATH=%PATH%"\r\n'
-                'for %%P in ("%PATH:;=";"%") do (\r\n'
-                '    set "PART=%%~P"\r\n'
-                '    echo !PART! | findstr /i "VC\\\\Tools\\\\MSVC\\\\.*bin\\\\HostX64\\\\x64" >nul\r\n'
-                '    if !errorlevel! equ 0 (\r\n'
-                '        set "VS_PATHS=!VS_PATHS!;!PART!"\r\n'
-                '    ) else (\r\n'
-                '        echo !PART! | findstr /i "msys64\\\\usr\\\\bin" >nul\r\n'
-                '        if !errorlevel! equ 0 (\r\n'
-                '            set "MSYS2_PATHS=!MSYS2_PATHS!;!PART!"\r\n'
-                '        ) else (\r\n'
-                '            set "OTHER_PATHS=!OTHER_PATHS!;!PART!"\r\n'
-                '        )\r\n'
-                '    )\r\n'
-                ')\r\n'
-                'if defined VS_PATHS set "VS_PATHS=!VS_PATHS:~1!"\r\n'
-                'if defined MSYS2_PATHS set "MSYS2_PATHS=!MSYS2_PATHS:~1!"\r\n'
-                'if defined OTHER_PATHS set "OTHER_PATHS=!OTHER_PATHS:~1!"\r\n'
-                'set "PATH=%PATH_PREFIX%!VS_PATHS!;!OTHER_PATHS!;!MSYS2_PATHS!"\r\n'
-                'endlocal & set "PATH=%PATH%"\r\n'
-            )
-            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file (parent MSVC env)\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH before reorder=%PATH%\r\n' + path_reorder + '\r\necho [BAT DEBUG] PATH after reorder=%PATH%\r\necho [BAT DEBUG] python location: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\n'
-            env = modifiedEnv
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file (parent MSVC env)\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] THIRDPARTY_MSYS64=%THIRDPARTY_MSYS64%\r\necho [BAT DEBUG] python location: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\n'
         else:
             # No MSVC env in parent, need to set it up in the bat file
             vcvars_setup = 'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64\r\n'
-            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] THIRDPARTY_MSYS64=%THIRDPARTY_MSYS64%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
             env = modifiedEnv
+            # Debug: verify THIRDPARTY_MSYS64 in modifiedEnv
+            print(f'[DEBUG RUN] modifiedEnv THIRDPARTY_MSYS64: {modifiedEnv.get("THIRDPARTY_MSYS64", "NOT SET")}')
 
         with open("command.bat", 'w') as file:
             file.write(debug_prefix + winFailOnEach(commands) + '\r\necho [BAT DEBUG] Finished bat file\r\ndir\r\n')
         batPath = os.path.abspath("command.bat")
         print(f'[DEBUG RUN] cwd={os.getcwd()} batPath={batPath}')
-        result = subprocess.run(batPath, shell=True, env=env).returncode == 0
+        # Use shell=False to properly use the env parameter on Windows
+        result = subprocess.run(batPath, shell=False, env=env).returncode == 0
         print(f'[DEBUG RUN] result={result} cwd_after={os.getcwd()}')
         # Debug: check if python venv was created (for python stage)
         print(f'[DEBUG RUN] cwd contents: {os.listdir(".")}')
@@ -430,6 +406,13 @@ def run(commands):
             print(f'[DEBUG RUN] Python stage detected, checking python availability')
             py_check = subprocess.run('python --version', shell=True, capture_output=True, text=True, env=env)
             print(f'[DEBUG RUN] python --version: stdout={py_check.stdout} stderr={py_check.stderr} rc={py_check.returncode}')
+        if result and os.path.exists("command.bat"):
+            os.remove("command.bat")
+        return result
+    elif re.search(r'\%', commands):
+        error('Bad command: ' + commands)
+    else:
+        return subprocess.run("set -e\n" + commands, shell=True, env=modifiedEnv).returncode == 0
         if result and os.path.exists("command.bat"):
             os.remove("command.bat")
         return result
