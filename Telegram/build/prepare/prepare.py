@@ -87,6 +87,7 @@ pathPrefixes = [
     'ThirdParty\\jom',
     'ThirdParty\\gyp',
     'C:\\ProgramData\\chocolatey\\bin',
+    'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja',
 ] if win else [
     'ThirdParty/gyp',
 ]
