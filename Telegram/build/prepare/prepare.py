@@ -361,6 +361,12 @@ def run(commands):
             print(f'[DEBUG RUN] python venv check: {activate_path} exists={os.path.exists(activate_path)}')
             if os.path.exists(activate_path):
                 print(f'[DEBUG RUN] python venv CONTENTS: {os.listdir("python")}')
+        # Additional debug for python stage
+        if 'python -m venv python' in commands:
+            print(f'[DEBUG RUN] Python stage detected, checking python availability')
+            import subprocess
+            py_check = subprocess.run('python --version', shell=True, capture_output=True, text=True, env=env)
+            print(f'[DEBUG RUN] python --version: stdout={py_check.stdout} stderr={py_check.stderr} rc={py_check.returncode}')
         if result and os.path.exists("command.bat"):
             os.remove("command.bat")
         return result
