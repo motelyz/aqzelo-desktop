@@ -46,16 +46,16 @@ if win and not 'COMSPEC' in os.environ:
 if win and not win32 and not win64 and not winarm:
     nativeToolsError()
 
-os.chdir(scriptPath + '/../../../..')
+os.chdir(scriptPath + '/../../..')
 
 pathSep = ';' if win else ':'
 libsLoc = 'Libraries' if not win64 else (os.path.join('Libraries', 'win64'))
 keysLoc = 'cache_keys'
 
 rootDir = os.getcwd()
-libsDir = os.path.realpath(os.path.join(rootDir, libsLoc))
-thirdPartyDir = os.path.realpath(os.path.join(rootDir, 'ThirdParty'))
-usedPrefix = os.path.realpath(os.path.join(libsDir, 'local'))
+libsDir = os.path.join(rootDir, libsLoc)
+thirdPartyDir = os.path.join(rootDir, 'ThirdParty')
+usedPrefix = os.path.join(libsDir, 'local')
 
 optionsList = [
     'qt6',
