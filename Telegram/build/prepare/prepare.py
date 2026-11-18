@@ -340,7 +340,9 @@ def run(commands):
             # Use the same vcvars version as the workflow (-vcvars_ver=14.44 for VS 2026/17.44 toolset)
             vcvars_setup = '"C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64 -vcvars_ver=14.44\r\n'
         with open("command.bat", 'w') as file:
-            file.write('@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\n' + vcvars_setup + winFailOnEach(commands))
+            # Add debug to trace bat file execution
+            debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] python location: & where python\r\n' + vcvars_setup
+            file.write(debug_prefix + winFailOnEach(commands) + '\r\necho [BAT DEBUG] Finished bat file\r\ndir\r\n')
         batPath = os.path.abspath("command.bat")
         print(f'[DEBUG RUN] cwd={os.getcwd()} batPath={batPath}')
         # If MSVC env is active (vcvarsall was run), inherit parent env but ensure PATH_PREFIX and other env vars are included
