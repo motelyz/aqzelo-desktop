@@ -315,8 +315,14 @@ def run(commands):
     if win:
         if os.path.exists("command.bat"):
             os.remove("command.bat")
+        # If MSVC env is active (vcvarsall was run in parent), we need to re-run vcvarsall in the bat file
+        # because the subprocess spawns a new cmd.exe shell that doesn't inherit the vcvars environment
+        vcvars_setup = ''
+        if os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'):
+            # Use the same vcvars version as the workflow (-vcvars_ver=14.44 for VS 2026/17.44 toolset)
+            vcvars_setup = '"C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64 -vcvars_ver=14.44\r\n'
         with open("command.bat", 'w') as file:
-            file.write('@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\n' + winFailOnEach(commands))
+            file.write('@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\n' + vcvars_setup + winFailOnEach(commands))
         batPath = os.path.abspath("command.bat")
         # If MSVC env is active (vcvarsall was run), inherit parent env but ensure PATH_PREFIX and other env vars are included
         use_modified_env = not bool(os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'))
