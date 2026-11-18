@@ -526,6 +526,10 @@ win:
     msys64.exe
     del msys64.exe
 
+    # Use a reliable mirror to avoid 404/timeout issues
+    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/msys2/\$repo/\$arch|' /etc/pacman.d/mirrorlist.msys"
+    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/mingw/\$repo/\$arch|' /etc/pacman.d/mirrorlist.mingw64"
+
     bash -c "pacman-key --init; pacman-key --populate; pacman -Syu --noconfirm"
     pacman -Syu --noconfirm ^
         make ^
