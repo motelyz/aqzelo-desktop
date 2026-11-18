@@ -516,30 +516,23 @@ mac:
     git checkout 7387476bb3b7200d3b044015696cb3c28f78593c
 """)
 
-stage('msys64', """
+# Check for system MSYS2 at Python level (GitHub runners have it at C:\msys64)
+system_msys64 = os.path.exists(r"C:\msys64\usr\bin\bash.exe")
+
+if not system_msys64:
+    stage('msys64', """
 win:
-    # Use system MSYS2 if available (GitHub runners have it at C:\\msys64)
-    # Otherwise use local ThirdParty/msys64
-    if exist "C:\\\\msys64\\\\usr\\\\bin\\\\bash.exe" (
-        SET PATH=C:\\\\msys64\\\\usr\\\\bin;%PATH%
-        SET THIRDPARTY_MSYS64=C:\\\\msys64
-    ) else (
-        SET PATH=%THIRDPARTY_DIR%\\\\msys64\\\\usr\\\\bin;%PATH%
-        SET THIRDPARTY_MSYS64=%THIRDPARTY_DIR%\\\\msys64
-    )
+    SET PATH=%THIRDPARTY_MSYS64%\\usr\\bin;%PATH%
     SET CHERE_INVOKING=enabled_from_arguments
     SET MSYS2_PATH_TYPE=inherit
 
-    # Only download/extract if local msys64 doesn't have bash
-    if not exist "%THIRDPARTY_DIR%\\\\msys64\\\\usr\\\\bin\\\\bash.exe" (
-        powershell -Command "iwr -OutFile ./msys64.exe https://github.com/msys2/msys2-installer/releases/download/2025-08-30/msys2-base-x86_64-20250830.sfx.exe"
-        msys64.exe
-        del msys64.exe
-    )
+    powershell -Command "iwr -OutFile ./msys64.exe https://github.com/msys2/msys2-installer/releases/download/2025-08-30/msys2-base-x86_64-20250830.sfx.exe"
+    msys64.exe
+    del msys64.exe
 
     # Use a reliable mirror to avoid 404/timeout issues
-    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/msys2/\\$repo/\\$arch|' /etc/pacman.d/mirrorlist.msys"
-    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/mingw/\\$repo/\\$arch|' /etc/pacman.d/mirrorlist.mingw64"
+    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/msys2/\$repo/\$arch|' /etc/pacman.d/mirrorlist.msys"
+    bash -c "sed -i 's|^Server = .*|Server = https://mirrors.edge.kernel.org/msys2/REPOS/mingw/\$repo/\$arch|' /etc/pacman.d/mirrorlist.mingw64"
 
     bash -c "pacman-key --init; pacman-key --populate; pacman -Syu --noconfirm"
     pacman -Syu --noconfirm ^
@@ -550,6 +543,22 @@ win:
         mingw-w64-x86_64-perl ^
         mingw-w64-x86_64-pkgconf
 """, 'ThirdParty')
+else:
+    # System MSYS2 is available, set up environment variables for other stages
+    environment['THIRDPARTY_MSYS64'] = r'C:\msys64'
+    # Update PATH_PREFIX to use system MSYS2
+    pathPrefixes = [
+        r'C:\msys64\usr\bin',
+        'ThirdParty\\jom',
+        'ThirdParty\\gyp',
+    ] if win else [
+        'ThirdParty/gyp',
+    ]
+    pathPrefix = ''
+    for singlePrefix in pathPrefixes:
+        pathPrefix = pathPrefix + os.path.join(rootDir, singlePrefix) + pathSep
+    environment['PATH_PREFIX'] = pathPrefix
+    modifiedEnv['PATH'] = environment['PATH_PREFIX'] + modifiedEnv['PATH']
 
 stage('python', """
 version: """ + (subprocess.run(['python', '-V'], capture_output=True, text=True, env=modifiedEnv).stdout.strip().split()[-1] if win else '0') + """.1
@@ -1064,10 +1073,10 @@ stage('libheif', """
     git clone -b v1.23.1 https://github.com/strukturag/libheif.git
     cd libheif
 win:
-    %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed.exe -i 's/LIBHEIF_EXPORTS/LIBDE265_STATIC_BUILD/g' libheif/CMakeLists.txt
-    %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed.exe -i 's/HAVE_VISIBILITY/LIBHEIF_STATIC_BUILD/g' libheif/CMakeLists.txt
-    %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed.exe -i 's/LIBHEIF_EXPORTS/LIBDE265_STATIC_BUILD/g' heifio/CMakeLists.txt
-    %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed.exe -i 's/HAVE_VISIBILITY/LIBHEIF_STATIC_BUILD/g' heifio/CMakeLists.txt
+    %THIRDPARTY_MSYS64%\\usr\\bin\\sed.exe -i 's/LIBHEIF_EXPORTS/LIBDE265_STATIC_BUILD/g' libheif/CMakeLists.txt
+    %THIRDPARTY_MSYS64%\\usr\\bin\\sed.exe -i 's/HAVE_VISIBILITY/LIBHEIF_STATIC_BUILD/g' libheif/CMakeLists.txt
+    %THIRDPARTY_MSYS64%\\usr\\bin\\sed.exe -i 's/LIBHEIF_EXPORTS/LIBDE265_STATIC_BUILD/g' heifio/CMakeLists.txt
+    %THIRDPARTY_MSYS64%\\usr\\bin\\sed.exe -i 's/HAVE_VISIBILITY/LIBHEIF_STATIC_BUILD/g' heifio/CMakeLists.txt
     cmake . ^
         -DCMAKE_INSTALL_PREFIX=%LIBS_DIR%/local ^
         -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>" ^
@@ -1275,7 +1284,7 @@ win:
 depends:patches/ffmpeg.patch
     git apply ../patches/ffmpeg.patch
 
-    SET PATH=%THIRDPARTY_DIR%\\msys64\\usr\\bin;%PATH%
+    SET PATH=%THIRDPARTY_MSYS64%\\usr\\bin;%PATH%
     SET CHERE_INVOKING=enabled_from_arguments
     SET MSYS2_PATH_TYPE=inherit
 
@@ -1923,7 +1932,7 @@ win:
     SET OPENSSL_DIR=%LIBS_DIR%\\openssl3
     SET OPENSSL_LIBS_DIR=%OPENSSL_DIR%\\out
     SET ZLIB_LIBS_DIR=%LIBS_DIR%\\zlib
-    %THIRDPARTY_DIR%\\msys64\\usr\\bin\\sed -i "s/STREQUAL/MATCHES/" td/generate/CMakeLists.txt
+    %THIRDPARTY_MSYS64%\\usr\\bin\\sed -i "s/STREQUAL/MATCHES/" td/generate/CMakeLists.txt
     mkdir out
     cd out
     mkdir Debug
