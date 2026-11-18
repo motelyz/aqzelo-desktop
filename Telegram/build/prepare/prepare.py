@@ -348,9 +348,9 @@ def run(commands):
             path_parts = parent_path.split(';')
 
             # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64)
-            vs_paths = [p for p in path_parts if r'VC\Tools\MSVC\' in p and r'bin\HostX64\x64' in p]
+            vs_paths = [p for p in path_parts if 'VC\\Tools\\MSVC\\' in p and 'bin\\HostX64\\x64' in p]
             # Find MSYS2 paths
-            msys2_paths = [p for p in path_parts if r'msys64\usr\bin' in p]
+            msys2_paths = [p for p in path_parts if 'msys64\\usr\\bin' in p]
             # Other paths
             other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
 
