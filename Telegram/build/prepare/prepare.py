@@ -182,12 +182,16 @@ def computeCacheKey(stage):
             path = os.path.join(thirdPartyDir, norm_pattern)
         if not os.path.exists(path):
             # Debug: print the paths we checked
+            print(f'[DEBUG] cwd={os.getcwd()}')
             print(f'[DEBUG] thirdPartyDir={thirdPartyDir}')
             print(f'[DEBUG] libsDir={libsDir}')
             print(f'[DEBUG] pattern={pattern}')
             print(f'[DEBUG] norm_pattern={norm_pattern}')
             print(f'[DEBUG] checked libsDir: {os.path.join(libsDir, norm_pattern)} exists={os.path.exists(os.path.join(libsDir, norm_pattern))}')
             print(f'[DEBUG] checked thirdPartyDir: {os.path.join(thirdPartyDir, norm_pattern)} exists={os.path.exists(os.path.join(thirdPartyDir, norm_pattern))}')
+            # Also check relative to cwd
+            cwd_path = os.path.join(os.getcwd(), norm_pattern)
+            print(f'[DEBUG] checked cwd: {cwd_path} exists={os.path.exists(cwd_path)}')
             error('Nothing found: ' + pattern)
         items = [pattern, computeFileHash(path)]
         objects.append(':'.join(items))
@@ -350,6 +354,10 @@ def run(commands):
                 env[key] = environment[key]
         result = subprocess.run(batPath, shell=True, env=env).returncode == 0
         print(f'[DEBUG RUN] result={result} cwd_after={os.getcwd()}')
+        # Debug: check if python venv was created (for python stage)
+        if result and 'python' in commands and os.path.exists('python'):
+            activate_path = os.path.join('python', 'Scripts', 'activate.bat')
+            print(f'[DEBUG RUN] python venv check: {activate_path} exists={os.path.exists(activate_path)}')
         if result and os.path.exists("command.bat"):
             os.remove("command.bat")
         return result
