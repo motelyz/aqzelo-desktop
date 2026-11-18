@@ -174,18 +174,15 @@ def computeCacheKey(stage):
         stage['commands']
     ]
     for pattern in stage['dependencies']:
-        # Normalize pattern to use platform path separator for glob
+        # Normalize pattern to use platform path separator
         norm_pattern = pattern.replace('/', os.sep)
-        pathlist = glob.glob(os.path.join(libsDir, norm_pattern))
-        items = [pattern]
-        if len(pathlist) == 0:
-            pathlist = glob.glob(os.path.join(thirdPartyDir, norm_pattern))
-        if len(pathlist) == 0:
+        # Check in libsDir first, then thirdPartyDir
+        path = os.path.join(libsDir, norm_pattern)
+        if not os.path.exists(path):
+            path = os.path.join(thirdPartyDir, norm_pattern)
+        if not os.path.exists(path):
             error('Nothing found: ' + pattern)
-        for path in pathlist:
-            if not os.path.exists(path):
-                error('Not found: ' + path)
-            items.append(computeFileHash(path))
+        items = [pattern, computeFileHash(path)]
         objects.append(':'.join(items))
     return hashlib.sha1(';'.join(objects).encode('utf-8')).hexdigest()
 
