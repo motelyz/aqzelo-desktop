@@ -338,7 +338,8 @@ def run(commands):
         vcvars_setup = ''
         if os.environ.get('VCINSTALLDIR') or os.environ.get('VisualStudioVersion'):
             # Use the same vcvars version as the workflow (-vcvars_ver=14.44 for VS 2026/17.44 toolset)
-            vcvars_setup = '"C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64 -vcvars_ver=14.44\r\n'
+            # MUST use 'call' otherwise control transfers to vcvarsall.bat and never returns!
+            vcvars_setup = 'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64 -vcvars_ver=14.44\r\n'
         with open("command.bat", 'w') as file:
             # Add debug to trace bat file execution
             debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\n'
