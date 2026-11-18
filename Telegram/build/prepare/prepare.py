@@ -355,9 +355,12 @@ def run(commands):
         result = subprocess.run(batPath, shell=True, env=env).returncode == 0
         print(f'[DEBUG RUN] result={result} cwd_after={os.getcwd()}')
         # Debug: check if python venv was created (for python stage)
+        print(f'[DEBUG RUN] cwd contents: {os.listdir(".")}')
         if result and 'python' in commands and os.path.exists('python'):
             activate_path = os.path.join('python', 'Scripts', 'activate.bat')
             print(f'[DEBUG RUN] python venv check: {activate_path} exists={os.path.exists(activate_path)}')
+            if os.path.exists(activate_path):
+                print(f'[DEBUG RUN] python venv CONTENTS: {os.listdir("python")}')
         if result and os.path.exists("command.bat"):
             os.remove("command.bat")
         return result
