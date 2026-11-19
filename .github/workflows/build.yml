@@ -148,7 +148,7 @@ jobs:
           cd /d ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
           set QT=5.15.19
           set X8664=x64
-          "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 -winsdk=10.0.26100.0 && python Telegram\build\prepare\prepare.py skip-release silent
+          "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44 && python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
@@ -187,7 +187,7 @@ jobs:
           Set-Location "$tbuild\$repoName\Telegram"
           $env:QT = "5.15.19"
           $env:QT_VERSION_MAJOR = "5"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 -winsdk=10.0.26100.0
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
           & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -196,7 +196,7 @@ jobs:
           $repoName = "${{ github.event.repository.name }}"
           $tbuild = "${{ github.workspace }}\TBuild"
           $env:QT = "5.15.19"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 -winsdk=10.0.26100.0
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
           cmake --build "$tbuild\$repoName\out" --config Debug --parallel
 
       - name: Prepare artifacts
