@@ -192,7 +192,8 @@ jobs:
         shell: pwsh
         run: |
           # Ensure MSVC environment is set up (vcvarsall sets Platform, VCINSTALLDIR, etc.)
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          # Use --% to stop PowerShell parsing of arguments
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" --% x64 10.0.26100.0 -vcvars_ver=14.44
           # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
           $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           $currentPath = $env:PATH
