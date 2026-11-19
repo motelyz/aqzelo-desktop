@@ -191,9 +191,23 @@ jobs:
       - name: Prepare Libraries (win.bat)
         shell: pwsh
         run: |
-          # Ensure MSVC environment is set up (vcvarsall sets Platform, VCINSTALLDIR, etc.)
-          # Use --% to stop PowerShell parsing of arguments
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" --% x64 10.0.26100.0 -vcvars_ver=14.44
+          # Capture vcvarsall environment by running it in cmd and parsing output
+          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+          $cmd = "cmd /c `"`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set`""
+          $output = & $cmd
+
+          # Parse environment variables from cmd output
+          foreach ($line in $output) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $name = $matches[1]
+              $value = $matches[2]
+              if ($name -in @('Platform', 'VCINSTALLDIR', 'VSINSTALLDIR', 'VCToolsVersion', 'WindowsSDKVersion', 'LibPath', 'IncludePath', 'PATH', 'LIB', 'INCLUDE', 'COMSPEC')) {
+                $env:$name = $value
+                Write-Host "Set $name"
+              }
+            }
+          }
+
           # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
           $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           $currentPath = $env:PATH
