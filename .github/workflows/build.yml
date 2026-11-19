@@ -197,12 +197,13 @@ jobs:
 
           # Parse environment variables from cmd output (case-insensitive matching)
           $targetVars = @('platform', 'vcinstalldir', 'vsinstalldir', 'vctoolsversion', 'windowssdkversion', 'libpath', 'includepath', 'path', 'lib', 'include', 'comspec')
+          $vcEnv = @{}
           foreach ($line in $output) {
             if ($line -match '^([^=]+)=(.*)$') {
               $name = $matches[1]
               $value = $matches[2]
               if ($targetVars -contains $name.ToLower()) {
-                ${env:$name} = $value
+                $vcEnv[$name] = $value
                 Write-Host "Set $name = $value"
               }
             }
@@ -210,20 +211,36 @@ jobs:
 
           # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
           $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
-          $currentPath = $env:PATH
+          $currentPath = $vcEnv['Path']  # Use captured PATH from vcvarsall
           $pathParts = $currentPath -split ';'
           $filtered = $pathParts | Where-Object {
             $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
             $_ -notlike '*msys64*' -and
             $_ -notlike '*Git\usr\bin*'
           }
-          $env:PATH = @($vsPath) + $filtered -join ';'
-          "PATH=$env:PATH" >> $env:GITHUB_PATH
+          $vcEnv['Path'] = @($vsPath) + $filtered -join ';'
+          "PATH=$($vcEnv['Path'])" >> $env:GITHUB_PATH
 
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-          $env:QT = "5.15.19"
-          $env:X8664 = "x64"
-          python Telegram\build\prepare\prepare.py skip-release silent
+          $vcEnv['QT'] = "5.15.19"
+          $vcEnv['X8664'] = "x64"
+
+          # Run python with explicit environment to ensure vars are passed
+          Write-Host "Running prepare.py with env: Platform=$($vcEnv['Platform']), VCINSTALLDIR=$($vcEnv['VCINSTALLDIR'])"
+          # Use Start-Process with explicit environment hashtable
+          $startInfo = @{
+            FilePath = "python"
+            ArgumentList = "Telegram\build\prepare\prepare.py", "skip-release", "silent"
+            WorkingDirectory = "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
+            Environment = $vcEnv
+            Wait = $true
+            NoNewWindow = $true
+            PassThru = $true
+          }
+          $process = Start-Process @startInfo
+          if ($process.ExitCode -ne 0) {
+            exit $process.ExitCode
+          }
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
