@@ -415,13 +415,6 @@ def run(commands):
         error('Bad command: ' + commands)
     else:
         return subprocess.run("set -e\n" + commands, shell=True, env=modifiedEnv).returncode == 0
-        if result and os.path.exists("command.bat"):
-            os.remove("command.bat")
-        return result
-    elif re.search(r'\%', commands):
-        error('Bad command: ' + commands)
-    else:
-        return subprocess.run("set -e\n" + commands, shell=True, env=modifiedEnv).returncode == 0
 
 # Thanks https://stackoverflow.com/a/510364
 class _Getch:
