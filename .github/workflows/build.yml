@@ -64,11 +64,26 @@ jobs:
           echo "$SDK" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
-      - name: Setup MSVC (official Telegram action)
-        uses: Eden-CI/msvc-dev-cmd@master
-        with:
-          arch: x64
-          sdk: ${{ env.SDK }}
+      - name: Setup MSVC (VS 2026)
+        shell: pwsh
+        run: |
+          # VS 2026 Enterprise path on windows-latest
+          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvars)) {
+            # Fallback to BuildTools
+            $vcvars = "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+          }
+          if (-not (Test-Path $vcvars)) {
+            Write-Error "vcvarsall.bat not found"
+            exit 1
+          }
+          # Use SDK 10.0.26100.0 with v144 toolset (VS 2022 compatible, supports Win7)
+          & $vcvars x64 -vcvars_ver=14.44 -winsdk=10.0.26100.0
+          # Persist environment for subsequent steps
+          $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "Path", "LIB", "INCLUDE")
+          foreach ($e in $envs) {
+            if ($env:$e) { "echo \"$e=$($env:$e)\" >> $env:GITHUB_ENV" | Invoke-Expression }
+          }
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         run: |
@@ -129,7 +144,7 @@ jobs:
           cd /d ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
           set QT=5.15.19
           set X8664=x64
-          "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 && python Telegram\build\prepare\prepare.py skip-release silent
+          python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
@@ -168,8 +183,6 @@ jobs:
           Set-Location "$tbuild\$repoName\Telegram"
           $env:QT = "5.15.19"
           $env:QT_VERSION_MAJOR = "5"
-          # Setup MSVC environment for this step
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -178,8 +191,6 @@ jobs:
           $repoName = "${{ github.event.repository.name }}"
           $tbuild = "${{ github.workspace }}\TBuild"
           $env:QT = "5.15.19"
-          # Setup MSVC environment for this step
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cmake --build "$tbuild\$repoName\out" --config Debug --parallel
 
       - name: Prepare artifacts
