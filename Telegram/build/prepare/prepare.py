@@ -2097,7 +2097,10 @@ mac:
 """)
 
 if win:
-    currentCodePage = subprocess.run('chcp', capture_output=True, shell=True, text=True, env=modifiedEnv).stdout.strip().split()[-1]
+    try:
+        currentCodePage = subprocess.run('chcp', capture_output=True, shell=True, text=True, env=modifiedEnv).stdout.strip().split()[-1]
+    except (IndexError, AttributeError):
+        currentCodePage = '65001'  # Default to UTF-8 if chcp fails
     subprocess.run('chcp 65001 > nul', shell=True, env=modifiedEnv)
     runStages()
     subprocess.run('chcp ' + currentCodePage + ' > nul', shell=True, env=modifiedEnv)
