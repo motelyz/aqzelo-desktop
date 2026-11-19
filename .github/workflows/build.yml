@@ -92,10 +92,11 @@ jobs:
           $env:PATH >> $env:GITHUB_PATH
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
+        shell: pwsh
         run: |
-          choco install make diffutils gperf nasm pkgconf ninja -y
+          choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
-          echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
+          "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
