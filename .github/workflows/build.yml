@@ -191,6 +191,20 @@ jobs:
       - name: Prepare Libraries (win.bat)
         shell: pwsh
         run: |
+          # Ensure MSVC environment is set up (vcvarsall sets Platform, VCINSTALLDIR, etc.)
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
+          $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
+          $currentPath = $env:PATH
+          $pathParts = $currentPath -split ';'
+          $filtered = $pathParts | Where-Object {
+            $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
+            $_ -notlike '*msys64*' -and
+            $_ -notlike '*Git\usr\bin*'
+          }
+          $env:PATH = @($vsPath) + $filtered -join ';'
+          "PATH=$env:PATH" >> $env:GITHUB_PATH
+
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
