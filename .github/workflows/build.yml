@@ -79,8 +79,8 @@ jobs:
           }
           # Use SDK 10.0.26100.0 with v144 toolset (VS 2022 compatible, supports Win7)
           & $vcvars x64 -vcvars_ver=14.44 -winsdk=10.0.26100.0
-          # Persist environment for subsequent steps
-          $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "Path", "LIB", "INCLUDE")
+          # Persist environment for subsequent steps (except PATH - use GITHUB_PATH for that)
+          $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE")
           foreach ($e in $envs) {
             $val = ${env:$e}
             if ($val) {
@@ -88,12 +88,57 @@ jobs:
               "echo `"$line`" >> $env:GITHUB_ENV" | Invoke-Expression
             }
           }
+          # Persist PATH separately via GITHUB_PATH
+          $env:PATH >> $env:GITHUB_PATH
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         run: |
           choco install make diffutils gperf nasm pkgconf ninja -y
           refreshenv
           echo "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
+
+      - name: Fix PATH order (VS tools before MSYS2)
+        shell: pwsh
+        run: |
+          # Ensure VS cl.exe/link.exe come before MSYS2/Git tools
+          # Detect VS path from VCINSTALLDIR (set by vcvarsall in previous step)
+          $vcInstallDir = $env:VCINSTALLDIR
+          if (-not $vcInstallDir) {
+            # Fallback to known path
+            $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
+          } else {
+            # VCINSTALLDIR is like "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\"
+            # VS tools are at VCINSTALLDIR\Tools\MSVC\<version>\bin\HostX64\x64
+            $msvcDir = Join-Path $vcInstallDir "Tools\MSVC"
+            if (Test-Path $msvcDir) {
+              $versions = Get-ChildItem $msvcDir -Directory | Sort-Object Name -Descending
+              if ($versions.Count -gt 0) {
+                $vsPath = Join-Path $versions[0].FullName "bin\HostX64\x64"
+              } else {
+                $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
+              }
+            } else {
+              $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
+            }
+          }
+
+          Write-Host "Using VS path: $vsPath"
+          $currentPath = $env:PATH
+          $pathParts = $currentPath -split ';'
+
+          # Remove any existing VS/MSYS2 paths
+          $filtered = $pathParts | Where-Object {
+            $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
+            $_ -notlike '*msys64*' -and
+            $_ -notlike '*Git\usr\bin*'
+          }
+
+          # Prepend VS path, then rest
+          $newPath = @($vsPath) + $filtered -join ';'
+          $env:PATH = $newPath
+          "PATH=$newPath" >> $env:GITHUB_PATH
+          Write-Host "PATH reordered: VS tools first"
+          Write-Host "New PATH: $newPath"
 
       - name: NuGet sources
         run: |
@@ -148,7 +193,7 @@ jobs:
           cd /d ${{ github.workspace }}\TBuild\${{ github.event.repository.name }}
           set QT=5.15.19
           set X8664=x64
-          "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44 && python Telegram\build\prepare\prepare.py skip-release silent
+          python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh

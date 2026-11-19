@@ -351,7 +351,11 @@ def run(commands):
             # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64) - case insensitive
             vs_paths = [p for p in path_parts if 'vc\\tools\\msvc\\' in p.lower() and 'bin\\hostx64\\x64' in p.lower()]
             # Find MSYS2 paths - case insensitive (both system and local)
-            msys2_paths = [p for p in path_parts if 'msys64\\usr\\bin' in p.lower() or 'msys64\\mingw64\\bin' in p.lower()]
+            # Match various formats: C:\msys64\usr\bin, C:/msys64/usr/bin, msys64\usr\bin, etc.
+            msys2_paths = [p for p in path_parts if (
+                'msys64' in p.lower() and
+                ('usr\\bin' in p.lower() or 'usr/bin' in p.lower() or 'mingw64\\bin' in p.lower() or 'mingw64/bin' in p.lower())
+            )]
             # Other paths
             other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
 
