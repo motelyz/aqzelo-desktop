@@ -193,8 +193,7 @@ jobs:
         run: |
           # Capture vcvarsall environment by running it in cmd and parsing output
           $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          $cmd = "cmd /c `"`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set`""
-          $output = & $cmd
+          $output = cmd /c "`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set"
 
           # Parse environment variables from cmd output
           foreach ($line in $output) {
