@@ -82,7 +82,8 @@ jobs:
           # Persist environment for subsequent steps
           $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "Path", "LIB", "INCLUDE")
           foreach ($e in $envs) {
-            if ($env:$e) { "echo \"$e=$($env:$e)\" >> $env:GITHUB_ENV" | Invoke-Expression }
+            $val = $env:$e
+            if ($val) { "echo \"$e=$val\" >> $env:GITHUB_ENV" | Invoke-Expression }
           }
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
