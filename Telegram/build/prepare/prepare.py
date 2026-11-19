@@ -86,7 +86,6 @@ if not os.path.isdir(os.path.join(thirdPartyDir, keysLoc)):
 
 pathPrefixes = [
     'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja',
-    'ThirdParty\\msys64\\mingw64\\bin',
     'ThirdParty\\jom',
     'ThirdParty\\gyp',
     'C:\\ProgramData\\chocolatey\\bin',
@@ -355,9 +354,10 @@ def run(commands):
                 'msys64' in p.lower() and
                 ('usr\\bin' in p.lower() or 'usr/bin' in p.lower())
             )]
-            # System paths (SystemRoot, etc.) - must be preserved for cmd.exe built-ins
+            # System paths (SystemRoot\System32 for cmd.exe built-ins like chcp, where)
+            # Look for explicit SystemRoot from env or default C:\Windows
             system_root = os.environ.get('SystemRoot') or os.environ.get('SYSTEMROOT', 'C:\\Windows')
-            system_paths = [p for p in path_parts if system_root.lower() in p.lower()]
+            system_paths = [p for p in path_parts if p.lower().startswith(system_root.lower() + '\\system32') or p.lower().startswith(system_root.lower() + '\\syswow64') or p.lower() == system_root.lower()]
             # Other paths (excluding MSYS2 usr/bin and system paths)
             other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_usrbin_paths and p not in system_paths]
 
@@ -602,10 +602,10 @@ win:
 else:
     # System MSYS2 is available, set up environment variables for other stages
     environment['THIRDPARTY_MSYS64'] = r'C:\msys64'
-    # Update PATH_PREFIX to use system MSYS2
+    # Update PATH_PREFIX to use system MSYS2 - but DO NOT prepend MSYS2 to PATH_PREFIX
+    # MSYS2 path should come AFTER VS tools to avoid GNU link.exe conflict
     pathPrefixes = [
         'C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja',
-        r'C:\msys64\usr\bin',
         'ThirdParty\\jom',
         'ThirdParty\\gyp',
         'C:\\ProgramData\\chocolatey\\bin',

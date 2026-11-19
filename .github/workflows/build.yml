@@ -102,6 +102,7 @@ jobs:
         shell: pwsh
         run: |
           # Ensure VS cl.exe/link.exe come before MSYS2/Git tools
+          # Also preserve SystemRoot for cmd.exe built-ins (chcp, where)
           # Detect VS path from VCINSTALLDIR (set by vcvarsall in previous step)
           $vcInstallDir = $env:VCINSTALLDIR
           if (-not $vcInstallDir) {
@@ -123,7 +124,13 @@ jobs:
             }
           }
 
+          # SystemRoot for cmd.exe built-ins
+          $systemRoot = $env:SystemRoot
+          if (-not $systemRoot) { $systemRoot = "C:\Windows" }
+          $systemPath = Join-Path $systemRoot "System32"
+
           Write-Host "Using VS path: $vsPath"
+          Write-Host "System path: $systemPath"
           $currentPath = $env:PATH
           $pathParts = $currentPath -split ';'
 
@@ -134,11 +141,12 @@ jobs:
             $_ -notlike '*Git\usr\bin*'
           }
 
-          # Prepend VS path, then rest
-          $newPath = @($vsPath) + $filtered -join ';'
+          # Prepend VS path, then SystemRoot, then rest
+          # This ensures: VS tools first, then cmd.exe built-ins work, then everything else
+          $newPath = @($vsPath, $systemPath) + $filtered -join ';'
           $env:PATH = $newPath
           "PATH=$newPath" >> $env:GITHUB_PATH
-          Write-Host "PATH reordered: VS tools first"
+          Write-Host "PATH reordered: VS tools first, then SystemRoot"
           Write-Host "New PATH: $newPath"
 
       - name: NuGet sources
@@ -209,6 +217,11 @@ jobs:
             }
           }
 
+          # SystemRoot for cmd.exe built-ins (chcp, where)
+          $systemRoot = $env:SystemRoot
+          if (-not $systemRoot) { $systemRoot = "C:\Windows" }
+          $systemPath = Join-Path $systemRoot "System32"
+
           # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
           $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           $currentPath = $vcEnv['Path']  # Use captured PATH from vcvarsall
@@ -218,7 +231,8 @@ jobs:
             $_ -notlike '*msys64*' -and
             $_ -notlike '*Git\usr\bin*'
           }
-          $vcEnv['Path'] = @($vsPath) + $filtered -join ';'
+          # Prepend VS path, then SystemRoot, then rest
+          $vcEnv['Path'] = @($vsPath, $systemPath) + $filtered -join ';'
           "PATH=$($vcEnv['Path'])" >> $env:GITHUB_PATH
 
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
@@ -238,8 +252,10 @@ jobs:
           foreach ($key in $vcEnv.Keys) {
             $mergedEnv[$key] = $vcEnv[$key]
           }
-          # Ensure PATH has VS tools first
+          # Ensure PATH has VS tools first, then SystemRoot
           $mergedEnv['Path'] = $vcEnv['Path']
+          # Ensure SystemRoot is explicitly set for cmd.exe built-ins
+          $mergedEnv['SystemRoot'] = $systemRoot
 
           # Use Start-Process with explicit environment hashtable
           $startInfo = @{
@@ -293,6 +309,8 @@ jobs:
           Set-Location "$tbuild\$repoName\Telegram"
           $env:QT = "5.15.19"
           $env:QT_VERSION_MAJOR = "5"
+          # Ensure SystemRoot is set for cmd.exe built-ins
+          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
           & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
           & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
@@ -302,6 +320,8 @@ jobs:
           $repoName = "${{ github.event.repository.name }}"
           $tbuild = "${{ github.workspace }}\TBuild"
           $env:QT = "5.15.19"
+          # Ensure SystemRoot is set for cmd.exe built-ins
+          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
           & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
           cmake --build "$tbuild\$repoName\out" --config Debug --parallel
 
