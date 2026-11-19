@@ -350,25 +350,31 @@ def run(commands):
 
             # Find VS tool paths (containing VC\Tools\MSVC\ and bin\HostX64\x64) - case insensitive
             vs_paths = [p for p in path_parts if 'vc\\tools\\msvc\\' in p.lower() and 'bin\\hostx64\\x64' in p.lower()]
-            # Find MSYS2 paths - case insensitive (both system and local)
-            # Match various formats: C:\msys64\usr\bin, C:/msys64/usr/bin, msys64\usr\bin, etc.
-            msys2_paths = [p for p in path_parts if (
+            # Find MSYS2 usr/bin paths (contains GNU link.exe that conflicts with MSVC) - case insensitive
+            msys2_usrbin_paths = [p for p in path_parts if (
                 'msys64' in p.lower() and
-                ('usr\\bin' in p.lower() or 'usr/bin' in p.lower() or 'mingw64\\bin' in p.lower() or 'mingw64/bin' in p.lower())
+                ('usr\\bin' in p.lower() or 'usr/bin' in p.lower())
             )]
-            # Other paths
-            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_paths]
+            # Other paths (excluding MSYS2 usr/bin)
+            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_usrbin_paths]
 
             # Debug: print what we found
             print(f'[DEBUG PATH] VS paths found: {vs_paths}')
-            print(f'[DEBUG PATH] MSYS2 paths found: {msys2_paths}')
+            print(f'[DEBUG PATH] MSYS2 usr/bin paths found: {msys2_usrbin_paths}')
             print(f'[DEBUG PATH] Other paths count: {len(other_paths)}')
 
-            # Reorder: VS paths first, then PATH_PREFIX, then MSYS2, then rest
-            # This ensures cl.exe and link.exe from VS are found before MSYS2 versions
+            # Reorder: VS paths first, then PATH_PREFIX (has mingw64/bin, chocolatey, etc.), then rest
+            # This ensures cl.exe and link.exe from VS are found before MSYS2/GNU versions
             reordered_path = ';'.join(vs_paths + other_paths)
             env = os.environ.copy()
             env['PATH'] = environment['PATH_PREFIX'] + reordered_path
+
+            # CRITICAL: Add SystemRoot for cmd.exe built-ins (chcp, where, etc.)
+            if 'SystemRoot' in os.environ:
+                env['SystemRoot'] = os.environ['SystemRoot']
+            elif 'SYSTEMROOT' in os.environ:
+                env['SystemRoot'] = os.environ['SYSTEMROOT']
+
             for key in environment:
                 env[key] = environment[key]
 
@@ -380,7 +386,7 @@ def run(commands):
                 print('[DEBUG RUN] WARNING: THIRDPARTY_MSYS64 NOT in environment dict!')
 
             # Debug: print all env vars being passed
-            print(f'[DEBUG RUN] Env vars passed to subprocess: {[k for k in env.keys() if "THIRD" in k or "PATH" in k or "MSYS" in k]}')
+            print(f'[DEBUG RUN] Env vars passed to subprocess: {[k for k in env.keys() if "THIRD" in k or "PATH" in k or "MSYS" in k or "SYSTEMROOT" in k or "SystemRoot" in k]}')
 
             # No vcvarsall call in bat file since parent already has it
             vcvars_setup = ''
@@ -389,7 +395,12 @@ def run(commands):
             # No MSVC env in parent, need to set it up in the bat file
             vcvars_setup = 'call "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\Build\\vcvarsall.bat" x64\r\n'
             debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] THIRDPARTY_MSYS64=%THIRDPARTY_MSYS64%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
-            env = modifiedEnv
+            env = modifiedEnv.copy()
+            # Add SystemRoot for cmd.exe built-ins
+            if 'SystemRoot' in os.environ:
+                env['SystemRoot'] = os.environ['SystemRoot']
+            elif 'SYSTEMROOT' in os.environ:
+                env['SystemRoot'] = os.environ['SYSTEMROOT']
             # Debug: verify THIRDPARTY_MSYS64 in modifiedEnv
             print(f'[DEBUG RUN] modifiedEnv THIRDPARTY_MSYS64: {modifiedEnv.get("THIRDPARTY_MSYS64", "NOT SET")}')
 
