@@ -355,25 +355,27 @@ def run(commands):
                 'msys64' in p.lower() and
                 ('usr\\bin' in p.lower() or 'usr/bin' in p.lower())
             )]
-            # Other paths (excluding MSYS2 usr/bin)
-            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_usrbin_paths]
+            # System paths (SystemRoot, etc.) - must be preserved for cmd.exe built-ins
+            system_root = os.environ.get('SystemRoot') or os.environ.get('SYSTEMROOT', 'C:\\Windows')
+            system_paths = [p for p in path_parts if system_root.lower() in p.lower()]
+            # Other paths (excluding MSYS2 usr/bin and system paths)
+            other_paths = [p for p in path_parts if p not in vs_paths and p not in msys2_usrbin_paths and p not in system_paths]
 
             # Debug: print what we found
             print(f'[DEBUG PATH] VS paths found: {vs_paths}')
             print(f'[DEBUG PATH] MSYS2 usr/bin paths found: {msys2_usrbin_paths}')
+            print(f'[DEBUG PATH] System paths found: {system_paths}')
             print(f'[DEBUG PATH] Other paths count: {len(other_paths)}')
 
-            # Reorder: VS paths first, then PATH_PREFIX (has mingw64/bin, chocolatey, etc.), then rest
+            # Reorder: VS paths first, then system paths (for cmd.exe built-ins), then PATH_PREFIX, then rest
             # This ensures cl.exe and link.exe from VS are found before MSYS2/GNU versions
-            reordered_path = ';'.join(vs_paths + other_paths)
+            # AND cmd.exe built-ins (chcp, where) work via SystemRoot
+            reordered_path = ';'.join(vs_paths + system_paths + other_paths)
             env = os.environ.copy()
             env['PATH'] = environment['PATH_PREFIX'] + reordered_path
 
             # CRITICAL: Add SystemRoot for cmd.exe built-ins (chcp, where, etc.)
-            if 'SystemRoot' in os.environ:
-                env['SystemRoot'] = os.environ['SystemRoot']
-            elif 'SYSTEMROOT' in os.environ:
-                env['SystemRoot'] = os.environ['SYSTEMROOT']
+            env['SystemRoot'] = system_root
 
             for key in environment:
                 env[key] = environment[key]
@@ -397,10 +399,11 @@ def run(commands):
             debug_prefix = '@echo OFF\r\nset "NoDefaultCurrentDirectoryInExePath="\r\necho [BAT DEBUG] Starting bat file\r\necho [BAT DEBUG] VCINSTALLDIR=%VCINSTALLDIR%\r\necho [BAT DEBUG] VisualStudioVersion=%VisualStudioVersion%\r\necho [BAT DEBUG] PATH=%PATH%\r\necho [BAT DEBUG] THIRDPARTY_MSYS64=%THIRDPARTY_MSYS64%\r\necho [BAT DEBUG] python location before vcvarsall: & where python\r\n' + vcvars_setup + 'echo [BAT DEBUG] python location after vcvarsall: & where python\r\necho [BAT DEBUG] cl location: & where cl\r\necho [BAT DEBUG] link location: & where link\r\necho [BAT DEBUG] PATH after vcvarsall=%PATH%\r\n'
             env = modifiedEnv.copy()
             # Add SystemRoot for cmd.exe built-ins
-            if 'SystemRoot' in os.environ:
-                env['SystemRoot'] = os.environ['SystemRoot']
-            elif 'SYSTEMROOT' in os.environ:
-                env['SystemRoot'] = os.environ['SYSTEMROOT']
+            system_root = os.environ.get('SystemRoot') or os.environ.get('SYSTEMROOT', 'C:\\Windows')
+            env['SystemRoot'] = system_root
+            # Ensure SystemRoot is in PATH
+            if system_root not in env.get('PATH', ''):
+                env['PATH'] = system_root + ';System32;' + env.get('PATH', '')
             # Debug: verify THIRDPARTY_MSYS64 in modifiedEnv
             print(f'[DEBUG RUN] modifiedEnv THIRDPARTY_MSYS64: {modifiedEnv.get("THIRDPARTY_MSYS64", "NOT SET")}')
 
