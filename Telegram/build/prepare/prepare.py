@@ -59,6 +59,8 @@ usedPrefix = os.path.join(libsDir, 'local')
 
 optionsList = [
     'qt6',
+    'qt5',
+    'qt_5',
     'skip-release',
     'build-stackwalk',
     'qt-asserts',
