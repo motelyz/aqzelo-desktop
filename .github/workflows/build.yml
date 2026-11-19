@@ -83,7 +83,10 @@ jobs:
           $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "Path", "LIB", "INCLUDE")
           foreach ($e in $envs) {
             $val = ${env:$e}
-            if ($val) { "echo \"$e=$val\" >> $env:GITHUB_ENV" | Invoke-Expression }
+            if ($val) {
+              $line = "$e=$val"
+              "echo `"$line`" >> $env:GITHUB_ENV" | Invoke-Expression
+            }
           }
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
