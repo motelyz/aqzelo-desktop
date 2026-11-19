@@ -195,14 +195,15 @@ jobs:
           $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
           $output = cmd /c "`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set"
 
-          # Parse environment variables from cmd output
+          # Parse environment variables from cmd output (case-insensitive matching)
+          $targetVars = @('platform', 'vcinstalldir', 'vsinstalldir', 'vctoolsversion', 'windowssdkversion', 'libpath', 'includepath', 'path', 'lib', 'include', 'comspec')
           foreach ($line in $output) {
             if ($line -match '^([^=]+)=(.*)$') {
               $name = $matches[1]
               $value = $matches[2]
-              if ($name -in @('Platform', 'VCINSTALLDIR', 'VSINSTALLDIR', 'VCToolsVersion', 'WindowsSDKVersion', 'LibPath', 'IncludePath', 'PATH', 'LIB', 'INCLUDE', 'COMSPEC')) {
+              if ($targetVars -contains $name.ToLower()) {
                 ${env:$name} = $value
-                Write-Host "Set $name"
+                Write-Host "Set $name = $value"
               }
             }
           }
