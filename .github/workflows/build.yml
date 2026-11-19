@@ -227,12 +227,26 @@ jobs:
 
           # Run python with explicit environment to ensure vars are passed
           Write-Host "Running prepare.py with env: Platform=$($vcEnv['Platform']), VCINSTALLDIR=$($vcEnv['VCINSTALLDIR'])"
+          # Merge vcEnv with current process environment (which has system paths)
+          $fullEnv = $env:PSModulePath  # Dummy to force env capture
+          $mergedEnv = @{}
+          # Copy all current env vars first
+          foreach ($key in [Environment]::GetEnvironmentVariables().Keys) {
+            $mergedEnv[$key] = [Environment]::GetEnvironmentVariables()[$key]
+          }
+          # Overlay vcEnv vars (vcvarsall)
+          foreach ($key in $vcEnv.Keys) {
+            $mergedEnv[$key] = $vcEnv[$key]
+          }
+          # Ensure PATH has VS tools first
+          $mergedEnv['Path'] = $vcEnv['Path']
+
           # Use Start-Process with explicit environment hashtable
           $startInfo = @{
             FilePath = "python"
             ArgumentList = "Telegram\build\prepare\prepare.py", "skip-release", "silent"
             WorkingDirectory = "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-            Environment = $vcEnv
+            Environment = $mergedEnv
             Wait = $true
             NoNewWindow = $true
             PassThru = $true
