@@ -98,12 +98,13 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-          # Debug: check if python was installed
-          Write-Host "Checking chocolatey bin:"
-          Get-ChildItem "C:\ProgramData\chocolatey\bin" -ErrorAction SilentlyContinue | Select-Object Name | Format-Table -AutoSize
-          Write-Host "Checking for python:"
-          Get-Command python -ErrorAction SilentlyContinue
-          Get-Command python3 -ErrorAction SilentlyContinue
+          # Create python.exe symlink if python3.15.exe exists but python.exe doesn't
+          if (Test-Path "C:\ProgramData\chocolatey\bin\python3.15.exe") {
+            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python.exe")) {
+              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python.exe" -Target "C:\ProgramData\chocolatey\bin\python3.15.exe" -Force
+              Write-Host "Created python.exe symlink"
+            }
+          }
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
@@ -212,14 +213,7 @@ jobs:
           set QT=5.15.19
           set X8664=x64
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          echo PATH after vcvarsall: %PATH%
           set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
-          echo PATH after explicit set: %PATH%
-          echo Checking for python in chocolatey bin:
-          dir "C:\ProgramData\chocolatey\bin\python*" 2>nul || echo NOT FOUND
-          echo Checking for python in common locations:
-          where python 2>nul || echo "where python failed"
-          where python3 2>nul || echo "where python3 failed"
           python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
@@ -258,10 +252,7 @@ jobs:
           set QT=5.15.19
           set QT_VERSION_MAJOR=5
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          echo PATH after vcvarsall: %PATH%
           set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
-          echo PATH after explicit set: %PATH%
-          where python
           configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -270,10 +261,7 @@ jobs:
           cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
           set QT=5.15.19
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          echo PATH after vcvarsall: %PATH%
           set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
-          echo PATH after explicit set: %PATH%
-          where cmake
           cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
