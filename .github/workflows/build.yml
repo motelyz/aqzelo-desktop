@@ -235,8 +235,10 @@ jobs:
           # Add Git to PATH (for git clone in prepare.py)
           $gitPath = "C:\Program Files\Git\bin"
           if (-not (Test-Path "$gitPath\git.exe")) { $gitPath = "C:\Program Files\Git\cmd" }
-          # Prepend VS path, then SystemRoot, then Git, then rest
-          $vcEnv['Path'] = @($vsPath, $systemPath, $gitPath) + $filtered -join ';'
+          # Add Chocolatey bin for python, ninja, etc.
+          $chocoPath = "C:\ProgramData\chocolatey\bin"
+          # Prepend VS path, then SystemRoot, then Git, then Chocolatey, then rest
+          $vcEnv['Path'] = @($vsPath, $systemPath, $gitPath, $chocoPath) + $filtered -join ';'
           "PATH=$($vcEnv['Path'])" >> $env:GITHUB_PATH
 
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
