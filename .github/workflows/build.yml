@@ -98,22 +98,21 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-          # Wait a bit for installation to complete
-          Start-Sleep -Seconds 5
-          # Find actual Python installation and create working python3.exe symlink
-          Write-Host "Looking for python315 lib folder..."
-          $pythonLib = Get-ChildItem "C:\ProgramData\chocolatey\lib\python315*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
-          Write-Host "Found pythonLib: $($pythonLib.FullName)"
-          if ($pythonLib) {
-            Write-Host "Contents of pythonLib:"
-            Get-ChildItem $pythonLib.FullName -Recurse -ErrorAction SilentlyContinue | Select-Object FullName | Format-Table -AutoSize
-            $actualPython = Join-Path $pythonLib.FullName "tools\python.exe"
-            Write-Host "Checking for actual python: $actualPython"
-            Write-Host "Exists: $(Test-Path $actualPython)"
-            if (Test-Path $actualPython) {
+          # Check if c:\python315\python.exe exists (installed by python315 package)
+          if (Test-Path "c:\python315\python.exe") {
+            Write-Host "Found Python at c:\python315\python.exe"
+            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
+              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target "c:\python315\python.exe" -Force
+              Write-Host "Created python3.exe symlink to c:\python315\python.exe"
+            }
+          } else {
+            Write-Host "c:\python315\python.exe not found, using system Python 3.12"
+            # Use system Python from hostedtoolcache
+            $sysPython = "C:\hostedtoolcache\windows\Python\3.12.10\x64\python.exe"
+            if (Test-Path $sysPython) {
               if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
-                New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target $actualPython -Force
-                Write-Host "Created python3.exe symlink to $actualPython"
+                New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target $sysPython -Force
+                Write-Host "Created python3.exe symlink to system Python"
               }
             }
           }
