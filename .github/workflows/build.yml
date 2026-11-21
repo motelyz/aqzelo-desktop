@@ -98,13 +98,6 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-          # Create python.exe symlink if python3.15.exe exists but python.exe doesn't
-          if (Test-Path "C:\ProgramData\chocolatey\bin\python3.15.exe") {
-            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python.exe")) {
-              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python.exe" -Target "C:\ProgramData\chocolatey\bin\python3.15.exe" -Force
-              Write-Host "Created python.exe symlink"
-            }
-          }
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
@@ -214,7 +207,7 @@ jobs:
           set X8664=x64
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
-          python Telegram\build\prepare\prepare.py skip-release silent
+          python3 Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
