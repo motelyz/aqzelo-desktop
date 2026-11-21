@@ -95,27 +95,9 @@ jobs:
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         shell: pwsh
         run: |
-          choco install make diffutils gperf nasm pkgconf ninja python -y
+          choco install make diffutils gperf nasm pkgconf ninja -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-          # Check if c:\python315\python.exe exists (installed by python315 package)
-          if (Test-Path "c:\python315\python.exe") {
-            Write-Host "Found Python at c:\python315\python.exe"
-            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
-              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target "c:\python315\python.exe" -Force
-              Write-Host "Created python3.exe symlink to c:\python315\python.exe"
-            }
-          } else {
-            Write-Host "c:\python315\python.exe not found, using system Python 3.12"
-            # Use system Python from hostedtoolcache
-            $sysPython = "C:\hostedtoolcache\windows\Python\3.12.10\x64\python.exe"
-            if (Test-Path $sysPython) {
-              if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
-                New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target $sysPython -Force
-                Write-Host "Created python3.exe symlink to system Python"
-              }
-            }
-          }
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
@@ -224,8 +206,8 @@ jobs:
           set QT=5.15.19
           set X8664=x64
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
-          python3 Telegram\build\prepare\prepare.py skip-release silent
+          set PATH=C:\hostedtoolcache\windows\Python\3.12.10\x64;C:\hostedtoolcache\windows\Python\3.12.10\x64\Scripts;C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
+          python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
@@ -263,7 +245,7 @@ jobs:
           set QT=5.15.19
           set QT_VERSION_MAJOR=5
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
+          set PATH=C:\hostedtoolcache\windows\Python\3.12.10\x64;C:\hostedtoolcache\windows\Python\3.12.10\x64\Scripts;C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
           configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -272,7 +254,7 @@ jobs:
           cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
           set QT=5.15.19
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
+          set PATH=C:\hostedtoolcache\windows\Python\3.12.10\x64;C:\hostedtoolcache\windows\Python\3.12.10\x64\Scripts;C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
           cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
