@@ -232,8 +232,11 @@ jobs:
             $_ -notlike '*msys64*' -and
             $_ -notlike '*Git\usr\bin*'
           }
-          # Prepend VS path, then SystemRoot, then rest
-          $vcEnv['Path'] = @($vsPath, $systemPath) + $filtered -join ';'
+          # Add Git to PATH (for git clone in prepare.py)
+          $gitPath = "C:\Program Files\Git\bin"
+          if (-not (Test-Path "$gitPath\git.exe")) { $gitPath = "C:\Program Files\Git\cmd" }
+          # Prepend VS path, then SystemRoot, then Git, then rest
+          $vcEnv['Path'] = @($vsPath, $systemPath, $gitPath) + $filtered -join ';'
           "PATH=$($vcEnv['Path'])" >> $env:GITHUB_PATH
 
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
