@@ -200,14 +200,11 @@ jobs:
         shell: pwsh
         run: |
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-          $env:QT = "5.15.19"
-          $env:X8664 = "x64"
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          # Ensure Python is in PATH (Chocolatey)
-          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
-          # Run vcvarsall via cmd to capture environment, then run prepare.py
           $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
           $script = @"
+          set QT=5.15.19
+          set X8664=x64
+          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
           call "$vcvars" x64 10.0.26100.0
           python Telegram\build\prepare\prepare.py skip-release silent
 "@
@@ -247,12 +244,11 @@ jobs:
         shell: pwsh
         run: |
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\Telegram"
-          $env:QT = "5.15.19"
-          $env:QT_VERSION_MAJOR = "5"
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
           $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
           $script = @"
+          set QT=5.15.19
+          set QT_VERSION_MAJOR=5
+          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
           call "$vcvars" x64 10.0.26100.0
           configure.bat x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 "@
@@ -263,11 +259,10 @@ jobs:
         shell: pwsh
         run: |
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\out"
-          $env:QT = "5.15.19"
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          $env:PATH = "C:\ProgramData\chocolatey\bin;$env:PATH"
           $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
           $script = @"
+          set QT=5.15.19
+          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
           call "$vcvars" x64 10.0.26100.0
           cmake --build . --config Debug --parallel
 "@
