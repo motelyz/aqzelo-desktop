@@ -135,16 +135,18 @@ jobs:
           $currentPath = $env:PATH
           $pathParts = $currentPath -split ';'
 
-          # Remove any existing VS/MSYS2 paths
+          # Remove any existing VS/MSYS2 paths, but preserve Chocolatey
           $filtered = $pathParts | Where-Object {
             $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
             $_ -notlike '*msys64*' -and
-            $_ -notlike '*Git\usr\bin*'
+            $_ -notlike '*Git\usr\bin*' -and
+            $_ -notlike '*chocolatey*'
           }
 
-          # Prepend VS path, then SystemRoot, then rest
-          # This ensures: VS tools first, then cmd.exe built-ins work, then everything else
-          $newPath = @($vsPath, $systemPath) + $filtered -join ';'
+          # Prepend VS path, then SystemRoot, then Chocolatey, then rest
+          # This ensures: VS tools first, then cmd.exe built-ins work, then Chocolatey tools, then everything else
+          $chocoPath = "C:\ProgramData\chocolatey\bin"
+          $newPath = @($vsPath, $systemPath, $chocoPath) + $filtered -join ';'
           $env:PATH = $newPath
           "PATH=$newPath" >> $env:GITHUB_PATH
           Write-Host "PATH reordered: VS tools first, then SystemRoot"
