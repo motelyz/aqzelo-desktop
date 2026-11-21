@@ -98,6 +98,12 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
+          # Debug: check if python was installed
+          Write-Host "Checking chocolatey bin:"
+          Get-ChildItem "C:\ProgramData\chocolatey\bin" -ErrorAction SilentlyContinue | Select-Object Name | Format-Table -AutoSize
+          Write-Host "Checking for python:"
+          Get-Command python -ErrorAction SilentlyContinue
+          Get-Command python3 -ErrorAction SilentlyContinue
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
@@ -209,7 +215,11 @@ jobs:
           echo PATH after vcvarsall: %PATH%
           set PATH=C:\ProgramData\chocolatey\bin;C:\Program Files\PowerShell\7;C:\Windows\System32;C:\Windows
           echo PATH after explicit set: %PATH%
-          where python
+          echo Checking for python in chocolatey bin:
+          dir "C:\ProgramData\chocolatey\bin\python*" 2>nul || echo NOT FOUND
+          echo Checking for python in common locations:
+          where python 2>nul || echo "where python failed"
+          where python3 2>nul || echo "where python3 failed"
           python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
