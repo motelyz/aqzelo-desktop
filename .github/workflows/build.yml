@@ -77,9 +77,9 @@ jobs:
             Write-Error "vcvarsall.bat not found"
             exit 1
           }
-          # Use SDK 10.0.26100.0 with v144 toolset (VS 2022 compatible, supports Win7)
-          # Correct syntax: vcvarsall.bat [arch] [winsdk_version] [-vcvars_ver=vc_version]
-          & $vcvars x64 10.0.26100.0 -vcvars_ver=14.44
+          # Use SDK 10.0.26100.0 with default toolset for VS 2026
+          # Correct syntax: vcvarsall.bat [arch] [winsdk_version]
+          & $vcvars x64 10.0.26100.0
           # Persist environment for subsequent steps (except PATH - use GITHUB_PATH for that)
           $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE")
           foreach ($e in $envs) {
@@ -204,8 +204,8 @@ jobs:
           $env:X8664 = "x64"
           # Ensure SystemRoot is set for cmd.exe built-ins (chcp, where)
           $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          # Run vcvarsall to set up MSVC environment (same as Configure CMake step)
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          # Run vcvarsall to set up MSVC environment (use default toolset for VS 2026)
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           # Run prepare.py with full MSVC environment
           python Telegram\build\prepare\prepare.py skip-release silent
           if ($LASTEXITCODE -ne 0) {
@@ -251,7 +251,7 @@ jobs:
           $env:QT_VERSION_MAJOR = "5"
           # Ensure SystemRoot is set for cmd.exe built-ins
           $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -262,7 +262,7 @@ jobs:
           $env:QT = "5.15.19"
           # Ensure SystemRoot is set for cmd.exe built-ins
           $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           cmake --build "$tbuild\$repoName\out" --config Debug --parallel
 
       - name: Prepare artifacts
