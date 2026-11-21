@@ -85,8 +85,7 @@ jobs:
           foreach ($e in $envs) {
             $val = ${env:$e}
             if ($val) {
-              $line = "$e=$val"
-              "echo `"$line`" >> $env:GITHUB_ENV" | Invoke-Expression
+              "$e=$val" >> $env:GITHUB_ENV
             }
           }
           # Persist PATH separately via GITHUB_PATH
