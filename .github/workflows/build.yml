@@ -98,11 +98,15 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
-          # Create python3.exe symlink if python3.15.exe exists
-          if (Test-Path "C:\ProgramData\chocolatey\bin\python3.15.exe") {
-            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
-              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target "C:\ProgramData\chocolatey\bin\python3.15.exe" -Force
-              Write-Host "Created python3.exe symlink"
+          # Find actual Python installation and create working python3.exe symlink
+          $pythonLib = Get-ChildItem "C:\ProgramData\chocolatey\lib\python315*" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($pythonLib) {
+            $actualPython = Join-Path $pythonLib.FullName "tools\python.exe"
+            if (Test-Path $actualPython) {
+              if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
+                New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target $actualPython -Force
+                Write-Host "Created python3.exe symlink to $actualPython"
+              }
             }
           }
 
