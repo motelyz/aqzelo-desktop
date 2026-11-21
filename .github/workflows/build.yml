@@ -197,20 +197,13 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt-
 
       - name: Prepare Libraries (win.bat)
-        shell: pwsh
+        shell: cmd
         run: |
-          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-          $env:QT = "5.15.19"
-          $env:X8664 = "x64"
-          # Ensure SystemRoot is set for cmd.exe built-ins (chcp, where)
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          # Run vcvarsall to set up MSVC environment (use default toolset for VS 2026)
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          # Run prepare.py with full MSVC environment
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%"
+          set QT=5.15.19
+          set X8664=x64
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           python Telegram\build\prepare\prepare.py skip-release silent
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-          }
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
@@ -242,28 +235,21 @@ jobs:
           Write-Host "Free space: $([math]::Round($disk.Free/1GB, 2)) GB"
 
       - name: Configure CMake (Debug, Qt5)
-        shell: pwsh
+        shell: cmd
         run: |
-          $repoName = "${{ github.event.repository.name }}"
-          $tbuild = "${{ github.workspace }}\TBuild"
-          Set-Location "$tbuild\$repoName\Telegram"
-          $env:QT = "5.15.19"
-          $env:QT_VERSION_MAJOR = "5"
-          # Ensure SystemRoot is set for cmd.exe built-ins
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          & "configure.bat" x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\Telegram"
+          set QT=5.15.19
+          set QT_VERSION_MAJOR=5
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
+          configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
-        shell: pwsh
+        shell: cmd
         run: |
-          $repoName = "${{ github.event.repository.name }}"
-          $tbuild = "${{ github.workspace }}\TBuild"
-          $env:QT = "5.15.19"
-          # Ensure SystemRoot is set for cmd.exe built-ins
-          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          cmake --build "$tbuild\$repoName\out" --config Debug --parallel
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
+          set QT=5.15.19
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
+          cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
         shell: pwsh
