@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 180
     defaults:
       run:
-        shell: cmd
+        shell: pwsh
 
     steps:
       - name: Prepare directories
