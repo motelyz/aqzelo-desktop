@@ -199,20 +199,14 @@ jobs:
       - name: Prepare Libraries (win.bat)
         shell: pwsh
         run: |
-          # Use already-configured environment from previous steps (Setup MSVC + Fix PATH order)
-          # This preserves Chocolatey (python, ninja), Git, and MSVC env vars (Platform, VCINSTALLDIR, etc.)
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
-
           # Ensure SystemRoot is set for cmd.exe built-ins (chcp, where)
           $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
-
-          # Verify MSVC env vars are present (set by Setup MSVC step via GITHUB_ENV)
-          Write-Host "Running prepare.py with Platform=$env:Platform, VCINSTALLDIR=$env:VCINSTALLDIR"
-          Write-Host "Running prepare.py with PATH: $env:PATH"
-
-          # Run prepare.py directly with inherited environment (GITHUB_ENV + GITHUB_PATH already applied)
+          # Run vcvarsall to set up MSVC environment (same as Configure CMake step)
+          & "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0 -vcvars_ver=14.44
+          # Run prepare.py with full MSVC environment
           python Telegram\build\prepare\prepare.py skip-release silent
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
