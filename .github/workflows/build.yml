@@ -204,7 +204,7 @@ jobs:
           set QT=5.15.19
           set X8664=x64
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
+          set PATH=C:\ProgramData\chocolatey\bin;%%PATH%%
           python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
@@ -243,7 +243,7 @@ jobs:
           set QT=5.15.19
           set QT_VERSION_MAJOR=5
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
+          set PATH=C:\ProgramData\chocolatey\bin;%%PATH%%
           configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -252,7 +252,7 @@ jobs:
           cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
           set QT=5.15.19
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
-          set PATH=C:\ProgramData\chocolatey\bin;%PATH%
+          set PATH=C:\ProgramData\chocolatey\bin;%%PATH%%
           cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
