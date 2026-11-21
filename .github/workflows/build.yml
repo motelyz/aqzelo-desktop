@@ -98,6 +98,13 @@ jobs:
           choco install make diffutils gperf nasm pkgconf ninja python -y
           refreshenv
           "C:\ProgramData\chocolatey\bin" >> $env:GITHUB_PATH
+          # Create python3.exe symlink if python3.15.exe exists
+          if (Test-Path "C:\ProgramData\chocolatey\bin\python3.15.exe") {
+            if (-not (Test-Path "C:\ProgramData\chocolatey\bin\python3.exe")) {
+              New-Item -ItemType SymbolicLink -Path "C:\ProgramData\chocolatey\bin\python3.exe" -Target "C:\ProgramData\chocolatey\bin\python3.15.exe" -Force
+              Write-Host "Created python3.exe symlink"
+            }
+          }
 
       - name: Fix PATH order (VS tools before MSYS2)
         shell: pwsh
