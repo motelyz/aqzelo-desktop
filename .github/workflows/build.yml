@@ -220,8 +220,8 @@ jobs:
           foreach ($v in $msvcVars) {
             if (-not $mergedEnv.ContainsKey($v)) {
               # Try to get from process env (GITHUB_ENV should have set these)
-              $val = $env:$v
-              if ($val) { $mergedEnv[$v] = $val }
+              $val = Get-Item "env:$v" -ErrorAction SilentlyContinue
+              if ($val) { $mergedEnv[$v] = $val.Value }
             }
           }
           $mergedEnv['SystemRoot'] = $systemRoot
