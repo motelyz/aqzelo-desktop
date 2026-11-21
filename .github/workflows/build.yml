@@ -201,7 +201,7 @@ jobs:
         shell: pwsh
         run: |
           # Use already-configured environment from previous steps (Setup MSVC + Fix PATH order)
-          # This preserves Chocolatey (python, ninja) and Git in PATH
+          # This preserves Chocolatey (python, ninja), Git, and MSVC env vars (Platform, VCINSTALLDIR, etc.)
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
@@ -210,16 +210,25 @@ jobs:
           $systemRoot = $env:SystemRoot
           if (-not $systemRoot) { $systemRoot = "C:\Windows" }
 
-          # Use current PATH which already has VS tools, SystemRoot, Git, Chocolatey from "Fix PATH order" step
-          # Just ensure SystemRoot is in the environment for subprocesses
+          # Use current environment which includes MSVC vars from GITHUB_ENV and fixed PATH from GITHUB_PATH
           $mergedEnv = @{}
           foreach ($key in [Environment]::GetEnvironmentVariables().Keys) {
             $mergedEnv[$key] = [Environment]::GetEnvironmentVariables()[$key]
+          }
+          # Ensure critical MSVC variables are present (from Setup MSVC step's GITHUB_ENV)
+          $msvcVars = @("Platform", "VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "LibPath", "IncludePath", "LIB", "INCLUDE")
+          foreach ($v in $msvcVars) {
+            if (-not $mergedEnv.ContainsKey($v)) {
+              # Try to get from process env (GITHUB_ENV should have set these)
+              $val = $env:$v
+              if ($val) { $mergedEnv[$v] = $val }
+            }
           }
           $mergedEnv['SystemRoot'] = $systemRoot
           $mergedEnv['QT'] = "5.15.19"
           $mergedEnv['X8664'] = "x64"
 
+          Write-Host "Running prepare.py with Platform=$($mergedEnv['Platform']), VCINSTALLDIR=$($mergedEnv['VCINSTALLDIR'])"
           Write-Host "Running prepare.py with PATH: $($mergedEnv['Path'])"
 
           # Use Start-Process with explicit environment hashtable
