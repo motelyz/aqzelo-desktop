@@ -207,43 +207,16 @@ jobs:
           $env:X8664 = "x64"
 
           # Ensure SystemRoot is set for cmd.exe built-ins (chcp, where)
-          $systemRoot = $env:SystemRoot
-          if (-not $systemRoot) { $systemRoot = "C:\Windows" }
+          $env:SystemRoot = $env:SystemRoot ?? "C:\Windows"
 
-          # Use current environment which includes MSVC vars from GITHUB_ENV and fixed PATH from GITHUB_PATH
-          $mergedEnv = @{}
-          foreach ($key in [Environment]::GetEnvironmentVariables().Keys) {
-            $mergedEnv[$key] = [Environment]::GetEnvironmentVariables()[$key]
-          }
-          # Ensure critical MSVC variables are present (from Setup MSVC step's GITHUB_ENV)
-          $msvcVars = @("Platform", "VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "LibPath", "IncludePath", "LIB", "INCLUDE")
-          foreach ($v in $msvcVars) {
-            if (-not $mergedEnv.ContainsKey($v)) {
-              # Try to get from process env (GITHUB_ENV should have set these)
-              $val = Get-Item "env:$v" -ErrorAction SilentlyContinue
-              if ($val) { $mergedEnv[$v] = $val.Value }
-            }
-          }
-          $mergedEnv['SystemRoot'] = $systemRoot
-          $mergedEnv['QT'] = "5.15.19"
-          $mergedEnv['X8664'] = "x64"
+          # Verify MSVC env vars are present (set by Setup MSVC step via GITHUB_ENV)
+          Write-Host "Running prepare.py with Platform=$env:Platform, VCINSTALLDIR=$env:VCINSTALLDIR"
+          Write-Host "Running prepare.py with PATH: $env:PATH"
 
-          Write-Host "Running prepare.py with Platform=$($mergedEnv['Platform']), VCINSTALLDIR=$($mergedEnv['VCINSTALLDIR'])"
-          Write-Host "Running prepare.py with PATH: $($mergedEnv['Path'])"
-
-          # Use Start-Process with explicit environment hashtable
-          $startInfo = @{
-            FilePath = "python"
-            ArgumentList = "Telegram\build\prepare\prepare.py", "skip-release", "silent"
-            WorkingDirectory = "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-            Environment = $mergedEnv
-            Wait = $true
-            NoNewWindow = $true
-            PassThru = $true
-          }
-          $process = Start-Process @startInfo
-          if ($process.ExitCode -ne 0) {
-            exit $process.ExitCode
+          # Run prepare.py directly with inherited environment (GITHUB_ENV + GITHUB_PATH already applied)
+          python Telegram\build\prepare\prepare.py skip-release silent
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
           }
 
       - name: Free disk space (cleanup ThirdParty after prepare)
