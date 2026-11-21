@@ -200,68 +200,27 @@ jobs:
       - name: Prepare Libraries (win.bat)
         shell: pwsh
         run: |
-          # Capture vcvarsall environment by running it in cmd and parsing output
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          $output = cmd /c "`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set"
+          # Use already-configured environment from previous steps (Setup MSVC + Fix PATH order)
+          # This preserves Chocolatey (python, ninja) and Git in PATH
+          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
+          $env:QT = "5.15.19"
+          $env:X8664 = "x64"
 
-          # Parse environment variables from cmd output (case-insensitive matching)
-          $targetVars = @('platform', 'vcinstalldir', 'vsinstalldir', 'vctoolsversion', 'windowssdkversion', 'libpath', 'includepath', 'path', 'lib', 'include', 'comspec')
-          $vcEnv = @{}
-          foreach ($line in $output) {
-            if ($line -match '^([^=]+)=(.*)$') {
-              $name = $matches[1]
-              $value = $matches[2]
-              if ($targetVars -contains $name.ToLower()) {
-                $vcEnv[$name] = $value
-                Write-Host "Set $name = $value"
-              }
-            }
-          }
-
-          # SystemRoot for cmd.exe built-ins (chcp, where)
+          # Ensure SystemRoot is set for cmd.exe built-ins (chcp, where)
           $systemRoot = $env:SystemRoot
           if (-not $systemRoot) { $systemRoot = "C:\Windows" }
-          $systemPath = Join-Path $systemRoot "System32"
 
-          # Re-apply PATH fix after vcvarsall (which prepends MSVC paths but may add MSYS2 after)
-          $vsPath = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
-          $currentPath = $vcEnv['Path']  # Use captured PATH from vcvarsall
-          $pathParts = $currentPath -split ';'
-          $filtered = $pathParts | Where-Object {
-            $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
-            $_ -notlike '*msys64*' -and
-            $_ -notlike '*Git\usr\bin*'
-          }
-          # Add Git to PATH (for git clone in prepare.py)
-          $gitPath = "C:\Program Files\Git\bin"
-          if (-not (Test-Path "$gitPath\git.exe")) { $gitPath = "C:\Program Files\Git\cmd" }
-          # Add Chocolatey bin for python, ninja, etc.
-          $chocoPath = "C:\ProgramData\chocolatey\bin"
-          # Prepend VS path, then SystemRoot, then Git, then Chocolatey, then rest
-          $vcEnv['Path'] = @($vsPath, $systemPath, $gitPath, $chocoPath) + $filtered -join ';'
-          "PATH=$($vcEnv['Path'])" >> $env:GITHUB_PATH
-
-          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-          $vcEnv['QT'] = "5.15.19"
-          $vcEnv['X8664'] = "x64"
-
-          # Run python with explicit environment to ensure vars are passed
-          Write-Host "Running prepare.py with env: Platform=$($vcEnv['Platform']), VCINSTALLDIR=$($vcEnv['VCINSTALLDIR'])"
-          # Merge vcEnv with current process environment (which has system paths)
-          $fullEnv = $env:PSModulePath  # Dummy to force env capture
+          # Use current PATH which already has VS tools, SystemRoot, Git, Chocolatey from "Fix PATH order" step
+          # Just ensure SystemRoot is in the environment for subprocesses
           $mergedEnv = @{}
-          # Copy all current env vars first
           foreach ($key in [Environment]::GetEnvironmentVariables().Keys) {
             $mergedEnv[$key] = [Environment]::GetEnvironmentVariables()[$key]
           }
-          # Overlay vcEnv vars (vcvarsall)
-          foreach ($key in $vcEnv.Keys) {
-            $mergedEnv[$key] = $vcEnv[$key]
-          }
-          # Ensure PATH has VS tools first, then SystemRoot
-          $mergedEnv['Path'] = $vcEnv['Path']
-          # Ensure SystemRoot is explicitly set for cmd.exe built-ins
           $mergedEnv['SystemRoot'] = $systemRoot
+          $mergedEnv['QT'] = "5.15.19"
+          $mergedEnv['X8664'] = "x64"
+
+          Write-Host "Running prepare.py with PATH: $($mergedEnv['Path'])"
 
           # Use Start-Process with explicit environment hashtable
           $startInfo = @{
