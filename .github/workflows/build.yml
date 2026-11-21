@@ -198,19 +198,14 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt-
 
       - name: Prepare Libraries (win.bat)
-        shell: pwsh
+        shell: cmd
         run: |
-          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          $script = @"
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%"
           set QT=5.15.19
           set X8664=x64
           set PATH=C:\ProgramData\chocolatey\bin;%PATH%
-          call "$vcvars" x64 10.0.26100.0
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           python Telegram\build\prepare\prepare.py skip-release silent
-"@
-          cmd /c $script
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Free disk space (cleanup ThirdParty after prepare)
         shell: pwsh
@@ -242,33 +237,23 @@ jobs:
           Write-Host "Free space: $([math]::Round($disk.Free/1GB, 2)) GB"
 
       - name: Configure CMake (Debug, Qt5)
-        shell: pwsh
+        shell: cmd
         run: |
-          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\Telegram"
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          $script = @"
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\Telegram"
           set QT=5.15.19
           set QT_VERSION_MAJOR=5
           set PATH=C:\ProgramData\chocolatey\bin;%PATH%
-          call "$vcvars" x64 10.0.26100.0
-          configure.bat x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
-"@
-          cmd /c $script
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
+          configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
-        shell: pwsh
+        shell: cmd
         run: |
-          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\out"
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          $script = @"
+          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
           set QT=5.15.19
           set PATH=C:\ProgramData\chocolatey\bin;%PATH%
-          call "$vcvars" x64 10.0.26100.0
+          call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 10.0.26100.0
           cmake --build . --config Debug --parallel
-"@
-          cmd /c $script
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare artifacts
         shell: pwsh
