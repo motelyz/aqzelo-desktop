@@ -226,7 +226,7 @@ jobs:
           cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
-          # Ensure PATH has VS tools, SystemRoot, Chocolatey, Python for subprocesses
+          # Ensure PATH has ONLY essential paths for subprocesses (avoid 300+ paths causing truncation)
           # Detect VS path from VCINSTALLDIR (set by Setup MSVC step via GITHUB_ENV)
           $vcInstallDir = $env:VCINSTALLDIR
           if (-not $vcInstallDir) {
@@ -251,16 +251,18 @@ jobs:
           $currentPath = $env:PATH
           $pathParts = $currentPath -split ';'
           $pythonPaths = $pathParts | Where-Object { $_ -like '*hostedtoolcache*Python*' }
-          $filtered = $pathParts | Where-Object {
-            $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
-            $_ -notlike '*msys64*' -and
-            $_ -notlike '*Git\usr\bin*' -and
-            $_ -notlike '*chocolatey*' -and
-            $_ -notlike '*hostedtoolcache*Python*'
+          # Keep ONLY essential system paths (not all 297+ other paths that cause truncation)
+          $essentialPaths = $pathParts | Where-Object {
+            $_ -like 'C:\Windows*' -or
+            $_ -like 'C:\Program Files\PowerShell*' -or
+            $_ -like 'C:\Program Files\CMake*' -or
+            $_ -like 'C:\Program Files\Git\bin' -or
+            $_ -like 'C:\Program Files\nodejs*'
           }
-          $newPath = @($vsPath, $systemPath, $chocoPath) + $pythonPaths + $filtered -join ';'
+          $newPath = @($vsPath, $systemPath, $chocoPath) + $pythonPaths + $essentialPaths -join ';'
           $env:PATH = $newPath
-          Write-Host "Prepare Libraries PATH set: VS tools first, then SystemRoot, then Python"
+          Write-Host "Prepare Libraries PATH set: VS tools, SystemRoot, Chocolatey, Python, essential system paths"
+          Write-Host "PATH length: $($newPath.Length) chars"
           # VS environment already set up by Setup MSVC step, PATH fixed above
           python Telegram\build\prepare\prepare.py skip-release silent
 
