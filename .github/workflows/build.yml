@@ -65,13 +65,70 @@ jobs:
           echo "$SDK" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
-      - name: Setup MSVC (VS 2022)
-        uses: microsoft/setup-msvc@v2
-        with:
-          architecture: x64
-          vs-version: '17.14'  # VS 2022 17.14 has toolset v14.44
-          vs-edition: 'enterprise'
-          windows-sdk-version: '10.0.26100.0'
+      - name: Setup MSVC (VS 2022 17.14, SDK 10.0.26100.0)
+        shell: pwsh
+        run: |
+          # Find vcvarsall.bat for VS 2022 (version 17) Enterprise
+          $vsPaths = @(
+            "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\17\Professional\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\17\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+          )
+          $vcvarsPath = $null
+          foreach ($p in $vsPaths) {
+            if (Test-Path $p) { $vcvarsPath = $p; break }
+          }
+          if (-not $vcvarsPath) {
+            Write-Error "vcvarsall.bat not found for VS 2022"
+            exit 1
+          }
+          Write-Host "Found vcvarsall.bat: $vcvarsPath"
+
+          # Run vcvarsall.bat and capture environment
+          # Use cmd /c "vcvarsall.bat x64 10.0.26100.0 && set" to get all env vars after setup
+          $cmd = "& `"$vcvarsPath`" x64 10.0.26100.0 && set"
+          $output = cmd /c $cmd 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat failed:"
+            $output | Write-Host
+            exit 1
+          }
+
+          # Parse output and set key environment variables via GITHUB_ENV
+          $envVars = @{}
+          foreach ($line in $output) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $name = $matches[1]
+              $value = $matches[2]
+              $envVars[$name] = $value
+            }
+          }
+
+          # Key variables needed by prepare.py and MSBuild
+          $keyVars = @('VCINSTALLDIR', 'VCToolsInstallDir', 'VCTargetsPath', 'MSBuildExtensionsPath', 'UniversalCRTSdkDir', 'UCRTVersion', 'WindowsSdkDir', 'WindowsSDKVersion', 'Platform', 'SystemRoot')
+          foreach ($var in $keyVars) {
+            if ($envVars.ContainsKey($var)) {
+              $val = $envVars[$var]
+              "$var=$val" >> $env:GITHUB_ENV
+              Write-Host "Set $var=$val"
+            } else {
+              Write-Warning "Variable $var not found in vcvarsall output"
+            }
+          }
+
+          # Also capture the full PATH after vcvarsall for reference
+          if ($envVars.ContainsKey('PATH')) {
+            "VCVARS_PATH=$($envVars['PATH'])" >> $env:GITHUB_ENV
+          }
+
+          # Verify cl.exe is available
+          $clPath = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
+          if ($clPath) {
+            Write-Host "cl.exe found at: $clPath"
+          } else {
+            Write-Warning "cl.exe not in PATH after vcvarsall"
+          }
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         shell: pwsh
@@ -86,20 +143,25 @@ jobs:
           # Ensure VS cl.exe/link.exe come before MSYS2/Git tools
           # Also preserve SystemRoot for cmd.exe built-ins (chcp, where)
           # AND preserve Python from hostedtoolcache
-          # VS tools path is now set by microsoft/setup-msvc action
-          $vsPath = $env:VCToolsInstallDir + "\bin\HostX64\x64"
-          if (-not (Test-Path $vsPath)) {
+          # Use VCToolsInstallDir captured from vcvarsall
+          $vcToolsDir = $env:VCToolsInstallDir
+          if (-not $vcToolsDir) {
             # Fallback: find latest MSVC version
             $msvcDir = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC"
             if (Test-Path $msvcDir) {
               $versions = Get-ChildItem $msvcDir -Directory | Sort-Object Name -Descending
               if ($versions.Count -gt 0) {
-                $vsPath = Join-Path $versions[0].FullName "bin\HostX64\x64"
+                $vcToolsDir = $versions[0].FullName
               }
             }
           }
+          if (-not $vcToolsDir) {
+            $vcToolsDir = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207"
+          }
+          $vsPath = Join-Path $vcToolsDir "bin\HostX64\x64"
           if (-not (Test-Path $vsPath)) {
-            $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
+            Write-Error "VS tools path not found: $vsPath"
+            exit 1
           }
 
           # SystemRoot for cmd.exe built-ins
@@ -132,9 +194,8 @@ jobs:
           $newPath = @($vsPath, $systemPath, $chocoPath) + $pythonPaths + $filtered -join ';'
           $env:PATH = $newPath
           "PATH=$newPath" >> $env:GITHUB_PATH
-          "PATH=$newPath" >> $env:GITHUB_PATH
           Write-Host "PATH reordered: VS tools first, then SystemRoot, then Python"
-          Write-Host "New PATH: $newPath"
+          Write-Host "New PATH length: $($newPath.Length) chars"
 
       - name: NuGet sources
         run: |
@@ -190,7 +251,7 @@ jobs:
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
           # Ensure PATH has ONLY essential paths for subprocesses (avoid 300+ paths causing truncation)
-          # Use VCToolsInstallDir set by microsoft/setup-msvc action
+          # Use VCToolsInstallDir captured from vcvarsall step
           $vcToolsDir = $env:VCToolsInstallDir
           if (-not $vcToolsDir) {
             $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
