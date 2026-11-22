@@ -79,8 +79,8 @@ jobs:
             exit 1
           }
           # Use SDK 10.0.26100.0 with v14.44 toolset (required for Windows 7 support per docs)
-          # Correct syntax: vcvarsall.bat [arch] -vcvars_ver=14.44 [winsdk_version]
-          & $vcvars x64 -vcvars_ver=14.44 10.0.26100.0
+          # Correct syntax: vcvarsall.bat [arch] [winsdk_version] [-vcvars_ver=vc_version]
+          & $vcvars x64 10.0.26100.0 -vcvars_ver=14.44
           # Persist environment for subsequent steps (except PATH - use GITHUB_PATH for that)
           $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE")
           foreach ($e in $envs) {
