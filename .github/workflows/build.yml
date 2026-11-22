@@ -95,12 +95,23 @@ jobs:
           }
           Write-Host "Found vcvarsall.bat: $vcvarsPath"
 
+          # Check what Windows SDK versions are available
+          $sdkDir = "C:\Program Files (x86)\Windows Kits\10\Include"
+          if (Test-Path $sdkDir) {
+            $sdks = Get-ChildItem $sdkDir -Directory | Sort-Object Name -Descending
+            Write-Host "Available Windows SDKs: $($sdks.Name -join ', ')"
+          }
+
           # Run vcvarsall.bat and capture environment
-          # Use cmd /c "vcvarsall.bat x64 10.0.26100.0 && set" to get all env vars after setup
-          $cmd = "& `"$vcvarsPath`" x64 10.0.26100.0 && set"
+          # Don't specify SDK version - let it use default (avoids error if specific SDK not installed)
+          # Use cmd /c "vcvarsall.bat x64 && set" to get all env vars after setup
+          $cmd = "& `"$vcvarsPath`" x64 && set"
+          Write-Host "Running: $cmd"
           $output = cmd /c $cmd 2>&1
+          Write-Host "vcvarsall exit code: $LASTEXITCODE"
+          Write-Host "vcvarsall output lines: $($output.Count)"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "vcvarsall.bat failed:"
+            Write-Error "vcvarsall.bat failed with exit code $LASTEXITCODE"
             $output | Write-Host
             exit 1
           }
@@ -124,6 +135,11 @@ jobs:
               Write-Host "Set $var=$val"
             } else {
               Write-Warning "Variable $var not found in vcvarsall output"
+              # Set WindowsSDKVersion to a known value if missing
+              if ($var -eq 'WindowsSDKVersion') {
+                "WindowsSDKVersion=10.0.26100.0" >> $env:GITHUB_ENV
+                Write-Host "Set WindowsSDKVersion=10.0.26100.0 (fallback)"
+              }
             }
           }
 
