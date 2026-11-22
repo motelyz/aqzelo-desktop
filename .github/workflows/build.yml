@@ -80,7 +80,8 @@ jobs:
           }
           # Use SDK 10.0.26100.0 with default toolset (VS 2026 uses v14.44 by default)
           # Capture environment from vcvarsall.bat by running it in cmd and parsing 'set' output
-          $cmd = "& `"$vcvars`" x64 10.0.26100.0 && set"
+          # In cmd: vcvarsall.bat x64 10.0.26100.0 && set
+          $cmd = "`"$vcvars`" x64 10.0.26100.0 && set"
           $output = cmd /c $cmd
           # Parse environment variables from output
           foreach ($line in $output) {
@@ -97,12 +98,13 @@ jobs:
               }
             }
           }
-          # Verify critical variables were captured
-          if (-not $env:Platform) {
+          # Verify critical variables were captured (check from parsed output, not current env)
+          $platformCaptured = $output | Where-Object { $_ -like 'Platform=*' }
+          if (-not $platformCaptured) {
             Write-Error "Failed to capture Platform from vcvarsall.bat"
             exit 1
           }
-          Write-Host "MSVC environment captured successfully. Platform: $env:Platform"
+          Write-Host "MSVC environment captured successfully. Platform: $($platformCaptured -replace 'Platform=', '')"
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         shell: pwsh
