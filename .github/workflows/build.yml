@@ -65,15 +65,24 @@ jobs:
           echo "$SDK" >> CACHE_KEY.txt
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
+      - name: Install VS 2022 Build Tools (C++ workload, v14.44 toolset)
+        shell: pwsh
+        run: |
+          # Install VS 2022 Build Tools with C++ workload via Chocolatey
+          # This provides v14.44 toolset needed for Windows 7 support
+          choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --wait"
+          refreshenv
+
       - name: Setup MSVC (VS 2022 17.14, SDK 10.0.26100.0)
         shell: pwsh
         run: |
-          # Find vcvarsall.bat for VS 2022 (version 17) Enterprise
+          # Find vcvarsall.bat for VS 2022 (version 17) BuildTools
           $vsPaths = @(
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
             "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
             "C:\Program Files\Microsoft Visual Studio\17\Professional\VC\Auxiliary\Build\vcvarsall.bat",
-            "C:\Program Files\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvarsall.bat",
-            "C:\Program Files (x86)\Microsoft Visual Studio\17\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+            "C:\Program Files\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvarsall.bat"
           )
           $vcvarsPath = $null
           foreach ($p in $vsPaths) {
