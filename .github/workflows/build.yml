@@ -78,9 +78,9 @@ jobs:
             Write-Error "vcvarsall.bat not found"
             exit 1
           }
-          # Use SDK 10.0.26100.0 with v14.44 toolset (required for Windows 7 support per docs)
+          # Use SDK 10.0.26100.0 with default toolset (VS 2026 uses v14.44 by default)
           # Correct syntax: vcvarsall.bat [arch] [winsdk_version] [-vcvars_ver=vc_version]
-          & $vcvars x64 10.0.26100.0 -vcvars_ver=14.44
+          & $vcvars x64 10.0.26100.0
           # Persist environment for subsequent steps (except PATH - use GITHUB_PATH for that)
           $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE")
           foreach ($e in $envs) {
