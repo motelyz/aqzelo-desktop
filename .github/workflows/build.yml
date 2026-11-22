@@ -89,6 +89,16 @@ jobs:
               "$e=$val" >> $env:GITHUB_ENV
             }
           }
+          # Restore Python path after vcvarsall (from hostedtoolcache)
+          $pythonDirs = Get-ChildItem "C:\hostedtoolcache\windows\Python" -Directory -ErrorAction SilentlyContinue
+          if ($pythonDirs) {
+            $latestPython = $pythonDirs | Sort-Object Name -Descending | Select-Object -First 1
+            $pythonPath = Join-Path $latestPython.FullName "x64"
+            $pythonScripts = Join-Path $pythonPath "Scripts"
+            if (Test-Path $pythonPath) {
+              $env:PATH = "$pythonPath;$pythonScripts;$env:PATH"
+            }
+          }
           # Persist PATH separately via GITHUB_PATH
           $env:PATH >> $env:GITHUB_PATH
 
@@ -104,6 +114,7 @@ jobs:
         run: |
           # Ensure VS cl.exe/link.exe come before MSYS2/Git tools
           # Also preserve SystemRoot for cmd.exe built-ins (chcp, where)
+          # AND preserve Python from hostedtoolcache
           # Detect VS path from VCINSTALLDIR (set by vcvarsall in previous step)
           $vcInstallDir = $env:VCINSTALLDIR
           if (-not $vcInstallDir) {
@@ -130,26 +141,32 @@ jobs:
           if (-not $systemRoot) { $systemRoot = "C:\Windows" }
           $systemPath = Join-Path $systemRoot "System32"
 
-          Write-Host "Using VS path: $vsPath"
-          Write-Host "System path: $systemPath"
           $currentPath = $env:PATH
           $pathParts = $currentPath -split ';'
 
-          # Remove any existing VS/MSYS2 paths, but preserve Chocolatey
+          # Preserve Python from hostedtoolcache (e.g., C:\hostedtoolcache\windows\Python\3.12.10\x64)
+          $pythonPaths = $pathParts | Where-Object { $_ -like '*hostedtoolcache*Python*' }
+
+          Write-Host "Using VS path: $vsPath"
+          Write-Host "System path: $systemPath"
+          Write-Host "Python paths preserved: $pythonPaths"
+
+          # Remove any existing VS/MSYS2 paths, but preserve Chocolatey AND Python
           $filtered = $pathParts | Where-Object {
             $_ -notlike '*Microsoft Visual Studio*VC\Tools\MSVC*' -and
             $_ -notlike '*msys64*' -and
             $_ -notlike '*Git\usr\bin*' -and
-            $_ -notlike '*chocolatey*'
+            $_ -notlike '*chocolatey*' -and
+            $_ -notlike '*hostedtoolcache*Python*'
           }
 
-          # Prepend VS path, then SystemRoot, then Chocolatey, then rest
-          # This ensures: VS tools first, then cmd.exe built-ins work, then Chocolatey tools, then everything else
+          # Prepend VS path, then SystemRoot, then Chocolatey, then Python, then rest
+          # This ensures: VS tools first, then cmd.exe built-ins work, then Chocolatey tools, then Python, then everything else
           $chocoPath = "C:\ProgramData\chocolatey\bin"
-          $newPath = @($vsPath, $systemPath, $chocoPath) + $filtered -join ';'
+          $newPath = @($vsPath, $systemPath, $chocoPath) + $pythonPaths + $filtered -join ';'
           $env:PATH = $newPath
           "PATH=$newPath" >> $env:GITHUB_PATH
-          Write-Host "PATH reordered: VS tools first, then SystemRoot"
+          Write-Host "PATH reordered: VS tools first, then SystemRoot, then Python"
           Write-Host "New PATH: $newPath"
 
       - name: NuGet sources
@@ -206,6 +223,11 @@ jobs:
           set QT=5.15.19
           set X8664=x64
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 10.0.26100.0
+          :: Restore Python path after vcvarsall (from hostedtoolcache)
+          for /d %%p in ("C:\hostedtoolcache\windows\Python\*\x64") do set "PYTHON_DIR=%%p"
+          if defined PYTHON_DIR (
+            set "PATH=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%PATH%"
+          )
           python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
@@ -244,6 +266,11 @@ jobs:
           set QT=5.15.19
           set QT_VERSION_MAJOR=5
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 10.0.26100.0
+          :: Restore Python path after vcvarsall (from hostedtoolcache)
+          for /d %%p in ("C:\hostedtoolcache\windows\Python\*\x64") do set "PYTHON_DIR=%%p"
+          if defined PYTHON_DIR (
+            set "PATH=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%PATH%"
+          )
           configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
@@ -252,6 +279,11 @@ jobs:
           cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
           set QT=5.15.19
           call "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 -vcvars_ver=14.44 10.0.26100.0
+          :: Restore Python path after vcvarsall (from hostedtoolcache)
+          for /d %%p in ("C:\hostedtoolcache\windows\Python\*\x64") do set "PYTHON_DIR=%%p"
+          if defined PYTHON_DIR (
+            set "PATH=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%PATH%"
+          )
           cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
