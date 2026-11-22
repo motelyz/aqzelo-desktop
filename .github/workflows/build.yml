@@ -207,12 +207,12 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt-
 
       - name: Prepare Libraries (win.bat)
-        shell: cmd
+        shell: pwsh
         run: |
-          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%"
-          set QT=5.15.19
-          set X8664=x64
-          :: VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
+          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}"
+          $env:QT = "5.15.19"
+          $env:X8664 = "x64"
+          # VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
           python Telegram\build\prepare\prepare.py skip-release silent
 
       - name: Free disk space (cleanup ThirdParty after prepare)
@@ -245,20 +245,20 @@ jobs:
           Write-Host "Free space: $([math]::Round($disk.Free/1GB, 2)) GB"
 
       - name: Configure CMake (Debug, Qt5)
-        shell: cmd
+        shell: pwsh
         run: |
-          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\Telegram"
-          set QT=5.15.19
-          set QT_VERSION_MAJOR=5
-          :: VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
-          configure.bat x64 -D TDESKTOP_API_ID=%TDESKTOP_API_ID% -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
+          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\Telegram"
+          $env:QT = "5.15.19"
+          $env:QT_VERSION_MAJOR = "5"
+          # VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
+          ./configure.bat x64 -D TDESKTOP_API_ID=$env:TDESKTOP_API_ID -D TDESKTOP_API_HASH=$env:TDESKTOP_API_HASH -D CMAKE_CONFIGURATION_TYPES=Debug -D CMAKE_COMPILE_WARNING_AS_ERROR=ON -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF -D QT_VERSION_MAJOR=5
 
       - name: Build Telegram (Debug)
-        shell: cmd
+        shell: pwsh
         run: |
-          cd /d "%GITHUB_WORKSPACE%\TBuild\%REPO_NAME%\out"
-          set QT=5.15.19
-          :: VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
+          cd "${{ github.workspace }}\TBuild\${{ github.event.repository.name }}\out"
+          $env:QT = "5.15.19"
+          # VS environment already set up by Setup MSVC step, PATH fixed by Fix PATH order step
           cmake --build . --config Debug --parallel
 
       - name: Prepare artifacts
