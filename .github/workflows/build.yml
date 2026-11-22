@@ -66,49 +66,12 @@ jobs:
           echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
 
       - name: Setup MSVC (VS 2022)
-        shell: pwsh
-        run: |
-          # VS 2022 Enterprise/Community path on windows-latest (has C++ workload properly installed)
-          $vcvars = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
-          if (-not (Test-Path $vcvars)) {
-            # Fallback to Community
-            $vcvars = "C:\Program Files\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvarsall.bat"
-          }
-          if (-not (Test-Path $vcvars)) {
-            # Fallback to BuildTools
-            $vcvars = "C:\Program Files (x86)\Microsoft Visual Studio\17\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-          }
-          if (-not (Test-Path $vcvars)) {
-            Write-Error "vcvarsall.bat not found"
-            exit 1
-          }
-          # Use SDK 10.0.26100.0 with toolset v14.44 (VS 2022 17.14)
-          # Capture environment from vcvarsall.bat by running it in cmd and parsing 'set' output
-          # In cmd: vcvarsall.bat x64 10.0.26100.0 -vcvars_ver=14.44 && set
-          $cmd = "`"$vcvars`" x64 10.0.26100.0 -vcvars_ver=14.44 && set"
-          $output = cmd /c $cmd
-          # Parse environment variables from output
-          foreach ($line in $output) {
-            if ($line -match '^([^=]+)=(.*)$') {
-              $name = $matches[1]
-              $value = $matches[2]
-              # Persist key VS environment variables (including MSBuild/C++ props paths)
-              if ($name -in @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE", "PATH", "VCTargetsPath", "MSBuildExtensionsPath", "MSBuildExtensionsPath32", "VCToolsInstallDir", "UniversalCRTSdkDir", "UCRTVersion")) {
-                if ($name -eq "PATH") {
-                  "$name=$value" >> $env:GITHUB_PATH
-                } else {
-                  "$name=$value" >> $env:GITHUB_ENV
-                }
-              }
-            }
-          }
-          # Verify critical variables were captured (check from parsed output, not current env)
-          $platformCaptured = $output | Where-Object { $_ -like 'Platform=*' }
-          if (-not $platformCaptured) {
-            Write-Error "Failed to capture Platform from vcvarsall.bat"
-            exit 1
-          }
-          Write-Host "MSVC environment captured successfully. Platform: $($platformCaptured -replace 'Platform=', '')"
+        uses: microsoft/setup-msvc@v2
+        with:
+          architecture: x64
+          vs-version: '17.14'  # VS 2022 17.14 has toolset v14.44
+          vs-edition: 'enterprise'
+          windows-sdk-version: '10.0.26100.0'
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         shell: pwsh
@@ -123,25 +86,20 @@ jobs:
           # Ensure VS cl.exe/link.exe come before MSYS2/Git tools
           # Also preserve SystemRoot for cmd.exe built-ins (chcp, where)
           # AND preserve Python from hostedtoolcache
-          # Detect VS path from VCINSTALLDIR (set by vcvarsall in previous step)
-          $vcInstallDir = $env:VCINSTALLDIR
-          if (-not $vcInstallDir) {
-            # Fallback to known path
-            $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
-          } else {
-            # VCINSTALLDIR is like "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\"
-            # VS tools are at VCINSTALLDIR\Tools\MSVC\<version>\bin\HostX64\x64
-            $msvcDir = Join-Path $vcInstallDir "Tools\MSVC"
+          # VS tools path is now set by microsoft/setup-msvc action
+          $vsPath = $env:VCToolsInstallDir + "\bin\HostX64\x64"
+          if (-not (Test-Path $vsPath)) {
+            # Fallback: find latest MSVC version
+            $msvcDir = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC"
             if (Test-Path $msvcDir) {
               $versions = Get-ChildItem $msvcDir -Directory | Sort-Object Name -Descending
               if ($versions.Count -gt 0) {
                 $vsPath = Join-Path $versions[0].FullName "bin\HostX64\x64"
-              } else {
-                $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
               }
-            } else {
-              $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
             }
+          }
+          if (-not (Test-Path $vsPath)) {
+            $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           }
 
           # SystemRoot for cmd.exe built-ins
@@ -173,6 +131,7 @@ jobs:
           $chocoPath = "C:\ProgramData\chocolatey\bin"
           $newPath = @($vsPath, $systemPath, $chocoPath) + $pythonPaths + $filtered -join ';'
           $env:PATH = $newPath
+          "PATH=$newPath" >> $env:GITHUB_PATH
           "PATH=$newPath" >> $env:GITHUB_PATH
           Write-Host "PATH reordered: VS tools first, then SystemRoot, then Python"
           Write-Host "New PATH: $newPath"
@@ -231,22 +190,12 @@ jobs:
           $env:QT = "5.15.19"
           $env:X8664 = "x64"
           # Ensure PATH has ONLY essential paths for subprocesses (avoid 300+ paths causing truncation)
-          # Detect VS path from VCINSTALLDIR (set by Setup MSVC step via GITHUB_ENV)
-          $vcInstallDir = $env:VCINSTALLDIR
-          if (-not $vcInstallDir) {
+          # Use VCToolsInstallDir set by microsoft/setup-msvc action
+          $vcToolsDir = $env:VCToolsInstallDir
+          if (-not $vcToolsDir) {
             $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
           } else {
-            $msvcDir = Join-Path $vcInstallDir "Tools\MSVC"
-            if (Test-Path $msvcDir) {
-              $versions = Get-ChildItem $msvcDir -Directory | Sort-Object Name -Descending
-              if ($versions.Count -gt 0) {
-                $vsPath = Join-Path $versions[0].FullName "bin\HostX64\x64"
-              } else {
-                $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
-              }
-            } else {
-              $vsPath = "C:\Program Files\Microsoft Visual Studio\17\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX64\x64"
-            }
+            $vsPath = Join-Path $vcToolsDir "bin\HostX64\x64"
           }
           $systemRoot = $env:SystemRoot
           if (-not $systemRoot) { $systemRoot = "C:\Windows" }
