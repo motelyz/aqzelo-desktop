@@ -70,9 +70,17 @@ jobs:
         run: |
           # Install VS 2022 Build Tools with C++ workload via Chocolatey
           # This provides v14.44 toolset needed for Windows 7 support
-          # Explicitly add VC tools, MFC, ATL, and Windows 11 SDK components
-          choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.MFC.x86.x64 --add Microsoft.VisualStudio.Component.VC.ATL.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended --quiet --wait"
+          # Explicitly add VC tools v14.44, MFC, ATL, and Windows 11 SDK components
+          choco install visualstudio2022buildtools -y --params "--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.14.44.x86.x64 --add Microsoft.VisualStudio.Component.VC.MFC.x86.x64 --add Microsoft.VisualStudio.Component.VC.ATL.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --includeRecommended --quiet --wait"
           refreshenv
+
+          # Verify what VC toolsets were installed
+          $vcToolsDir = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+          if (Test-Path $vcToolsDir) {
+            Get-ChildItem $vcToolsDir -Directory | ForEach-Object { Write-Host "Found VC toolset: $($_.Name)" }
+          } else {
+            Write-Warning "VC Tools directory not found at $vcToolsDir"
+          }
 
       - name: Setup MSVC (VS 2022 17.14, SDK 10.0.26100.0)
         shell: pwsh
@@ -102,10 +110,16 @@ jobs:
             Write-Host "Available Windows SDKs: $($sdks.Name -join ', ')"
           }
 
-          # Run vcvarsall.bat and capture environment
-          # Don't specify SDK version - let it use default (avoids error if specific SDK not installed)
-          # Use cmd /c "vcvarsall.bat x64 && set" to get all env vars after setup
-          $cmd = "& `"$vcvarsPath`" x64 && set"
+          # Check what VC toolsets are available
+          $vcToolsDir = "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+          if (Test-Path $vcToolsDir) {
+            $toolsets = Get-ChildItem $vcToolsDir -Directory | Sort-Object Name -Descending
+            Write-Host "Available VC toolsets: $($toolsets.Name -join ', ')"
+          }
+
+          # Run vcvarsall.bat with explicit v14.44 toolset for Windows 7 support
+          # Use cmd /c "vcvarsall.bat x64 -vcvars_ver=14.44 && set" to get all env vars after setup
+          $cmd = "& `"$vcvarsPath`" x64 -vcvars_ver=14.44 && set"
           Write-Host "Running: $cmd"
           $output = cmd /c $cmd 2>&1
           Write-Host "vcvarsall exit code: $LASTEXITCODE"
@@ -113,7 +127,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             Write-Error "vcvarsall.bat failed with exit code $LASTEXITCODE"
             $output | Write-Host
-            exit 1
+            # Try without explicit toolset as fallback
+            Write-Host "Trying fallback without explicit toolset..."
+            $cmd = "& `"$vcvarsPath`" x64 && set"
+            Write-Host "Running: $cmd"
+            $output = cmd /c $cmd 2>&1
+            Write-Host "vcvarsall exit code (fallback): $LASTEXITCODE"
+            Write-Host "vcvarsall output lines (fallback): $($output.Count)"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "vcvarsall.bat fallback also failed with exit code $LASTEXITCODE"
+              $output | Write-Host
+              exit 1
+            }
           }
 
           # Parse output and set key environment variables via GITHUB_ENV
