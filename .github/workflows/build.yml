@@ -88,8 +88,8 @@ jobs:
             if ($line -match '^([^=]+)=(.*)$') {
               $name = $matches[1]
               $value = $matches[2]
-              # Persist key VS environment variables
-              if ($name -in @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE", "PATH")) {
+              # Persist key VS environment variables (including MSBuild/C++ props paths)
+              if ($name -in @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE", "PATH", "VCTargetsPath", "MSBuildExtensionsPath", "MSBuildExtensionsPath32", "VCToolsInstallDir", "UniversalCRTSdkDir", "UCRTVersion")) {
                 if ($name -eq "PATH") {
                   "$name=$value" >> $env:GITHUB_PATH
                 } else {
