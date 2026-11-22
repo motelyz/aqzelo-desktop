@@ -79,18 +79,30 @@ jobs:
             exit 1
           }
           # Use SDK 10.0.26100.0 with default toolset (VS 2026 uses v14.44 by default)
-          # Correct syntax: vcvarsall.bat [arch] [winsdk_version] [-vcvars_ver=vc_version]
-          & $vcvars x64 10.0.26100.0
-          # Persist environment for subsequent steps (except PATH - use GITHUB_PATH for that)
-          $envs = @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE")
-          foreach ($e in $envs) {
-            $val = ${env:$e}
-            if ($val) {
-              "$e=$val" >> $env:GITHUB_ENV
+          # Capture environment from vcvarsall.bat by running it in cmd and parsing 'set' output
+          $cmd = "& `"$vcvars`" x64 10.0.26100.0 && set"
+          $output = cmd /c $cmd
+          # Parse environment variables from output
+          foreach ($line in $output) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              $name = $matches[1]
+              $value = $matches[2]
+              # Persist key VS environment variables
+              if ($name -in @("VCINSTALLDIR", "VSINSTALLDIR", "VCToolsVersion", "WindowsSDKVersion", "Platform", "LibPath", "IncludePath", "LIB", "INCLUDE", "PATH")) {
+                if ($name -eq "PATH") {
+                  "$name=$value" >> $env:GITHUB_PATH
+                } else {
+                  "$name=$value" >> $env:GITHUB_ENV
+                }
+              }
             }
           }
-          # Persist PATH separately via GITHUB_PATH (Fix PATH order step will reorder it)
-          $env:PATH >> $env:GITHUB_PATH
+          # Verify critical variables were captured
+          if (-not $env:Platform) {
+            Write-Error "Failed to capture Platform from vcvarsall.bat"
+            exit 1
+          }
+          Write-Host "MSVC environment captured successfully. Platform: $env:Platform"
 
       - name: Install MSYS2 tools via Chocolatey (fix for missing packages)
         shell: pwsh
